@@ -1,0 +1,9 @@
+version: "3.7"
+services:
+  builder:
+    image: flex6k-toolchain
+    ports:
+      - target: 22
+        published: 2222
+        protocol: tcp
+        mode: host
