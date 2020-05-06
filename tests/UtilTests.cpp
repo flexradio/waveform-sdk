@@ -10,9 +10,9 @@ extern "C" {
 
 TEST(UtilityTestSuite, TokenizerTest){
    char* argv[3] = {
-           strdup("slice"),
-           strdup("status"),
-           strdup("mode=USB")
+      strdup("slice"),
+      strdup("status"),
+      strdup("mode=USB")
    };
 
    struct kwarg* args = parse_kwargs(argv, ARRAY_SIZE(argv), 0);
