@@ -3,7 +3,10 @@
 //
 
 #include "gtest/gtest.h"
+
+extern "C" {
 #include "utils.h"
+}
 
 TEST(UtilityTestSuite, TokenizerTest){
    char* argv[3] = {
