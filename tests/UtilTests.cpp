@@ -7,9 +7,9 @@
 
 TEST(UtilityTestSuite, TokenizerTest){
    char* argv[3] = {
-           "slice",
-           "status",
-           "mode=USB"
+           strdup("slice"),
+           strdup("status"),
+           strdup("mode=USB")
    };
    struct kwarg *args;
 
