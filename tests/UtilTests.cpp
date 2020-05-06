@@ -14,8 +14,7 @@ TEST(UtilityTestSuite, TokenizerTest){
            strdup("status"),
            strdup("mode=USB")
    };
-   struct kwarg *args;
 
-   args = parse_kwargs(argv, ARRAY_SIZE(argv), 0);
+   struct kwarg* args = parse_kwargs(argv, ARRAY_SIZE(argv), 0);
    EXPECT_STREQ(find_kwarg(args, "mode"), "USB");
 }
