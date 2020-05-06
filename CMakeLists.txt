@@ -1,12 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
-project(waveform_sdk C)
+project(waveform_sdk)
 
 set(CMAKE_C_STANDARD 99)
 
-set(WAVEFORM_SRCS
-   src/utils.c
-)
-
+add_subdirectory(src)
 add_subdirectory(tests)
 
-add_library(waveform ${WAVEFORM_SRCS})

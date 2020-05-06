@@ -1,4 +1,4 @@
-project(tests)
+#project(tests)
 
 set(CMAKE_CXX_STANDARD 11)
 
@@ -41,8 +41,9 @@ endif()
 
 
 add_executable(Google_Tests_run UtilTests.cpp)
-target_include_directories(Google_Tests_run PRIVATE "../src")
+include_directories(${waveform_sdk_SOURCE_DIR}/src)
+#target_include_directories(Google_Tests_run PRIVATE "../src")
 target_link_libraries(Google_Tests_run waveform)
 target_link_libraries(Google_Tests_run gtest gtest_main)
 
-add_test(NAME utils COMMAND Google_Tests_run)
+#add_test(NAME utils COMMAND Google_Tests_run)
