@@ -13,6 +13,6 @@ TEST(UtilityTestSuite, TokenizerTest){
    };
    struct kwarg *args;
 
-   args = parse_kwargs(argv, 3, 0);
+   args = parse_kwargs(argv, ARRAY_SIZE(argv), 0);
    EXPECT_STREQ(find_kwarg(args, "mode"), "USB");
 }
