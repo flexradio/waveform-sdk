@@ -146,7 +146,9 @@ void waveform_evt_loop(void);
 /// @param waveform Pointer to the waveform structure returned by waveform_create()
 /// @param command A format string in printf(3) format.
 /// @param ... Arguments for format specification
-int send_api_command(struct waveform_t* waveform, char* command, ...);
+//int send_api_command(struct waveform_t* waveform, char* command, ...);
+#define send_api_command(waveform, command, ...) \
+   send_api_command_cb(waveform, NULL, NULL, command, ##__VA_ARGS__)
 
 /// @brief Sends a command to the radio and invokes callback
 /// @details This version of the command processing waits for a response from the radio and invokes your desired
