@@ -26,8 +26,12 @@ struct waveform_t;
 
 //  Callback formats
 // XXX How many of these do we need?  A separate one for each?  A common one?  Event/data?
-typedef int (*waveform_init_cb_t)(waveform_t* waveform, void *arg);
+typedef int (*waveform_state_cb_t)(waveform_t* waveform, void *arg);
+typedef int (*waveform_cmd_cb_t)(waveform_t* waveform, char* command, void *arg);
 typedef int (*waveform_data_cb_t)(waveform_t* waveform, void* data, void* arg);
+
+//  You are expected to be through with *message when you return.  We will free it.  Copy if needed.
+typedef void (*waveform_response_cb_t)(waveform_t* waveform, int code, char* message);
 
 /// @brief Create a waveform.
 /// @details Creates a waveform for processing.  This will register the waveform with the SDK and set it up to be
@@ -58,7 +62,7 @@ void waveform_destroy(struct waveform_t* waveform);
 /// @param cb A pointer to the callback function
 /// @param arg A user-defined argument to be passed to the callback upon execution
 /// @return 0 upon success, -1 on failure
-int waveform_register_activate_cb(struct waveform_t* waveform, waveform_activate_cb_t *cb, void *arg);
+int waveform_register_activate_cb(struct waveform_t* waveform, waveform_state_cb_t *cb, void *arg);
 
 /// @brief Register an dectivation callback for a waveform.
 /// @details When a slice on the radio switches away from a mode handled by this waveform, this callback is called.
@@ -69,7 +73,7 @@ int waveform_register_activate_cb(struct waveform_t* waveform, waveform_activate
 /// @param cb A pointer to the callback function
 /// @param arg A user-defined argument to be passed to the callback upon execution.  Can be NULL.
 /// @return 0 upon success, -1 on failure
-int waveform_register_deactivate_cb(struct waveform_t* waveform, waveform_deactivate_cb_t *cb, void *arg);
+int waveform_register_deactivate_cb(struct waveform_t* waveform, waveform_state_cb_t *cb, void *arg);
 
 /// @brief Register a transmitter data callback for a waveform.
 /// @details Registers a callback that is called when there is data from the incoming audio source to be transmitted.
@@ -99,7 +103,7 @@ int waveform_register_rx_data_cb(struct waveform_t* waveform, waveform_data_cb_t
 /// @param cb Pointer to the callback function
 /// @param arg A user-defined argument to be passed to the callback on execution.  Can be NULL.
 /// @return 0 upon success, -1 on failure
-int waveform_register_tx_prepare_cb(struct waveform_t* waveform, waveform_tx_cb_t *cb, void *arg);
+int waveform_register_tx_prepare_cb(struct waveform_t* waveform, waveform_state_cb_t *cb, void *arg);
 
 /// @brief Register a prepare for receive callback.
 /// @details Registers a callback is called when the user has released PTT and the receiver is preparing to
@@ -109,7 +113,7 @@ int waveform_register_tx_prepare_cb(struct waveform_t* waveform, waveform_tx_cb_
 /// @param cb Pointer to the callback function
 /// @param arg A user-defined argument to be passed to the callback on execution.  Can be NULL.
 /// @return 0 upon success, -1 on failure
-int waveform_register_rx_prepare_cb(struct waveform_t* waveform, waveform_rx_cb_t *cb, void *arg);
+int waveform_register_rx_prepare_cb(struct waveform_t* waveform, waveform_state_cb_t *cb, void *arg);
 
 /// @brief Register a status callback.
 /// @details Registers a callback is called when the radio status changes.  This function also handles creating the
@@ -120,7 +124,7 @@ int waveform_register_rx_prepare_cb(struct waveform_t* waveform, waveform_rx_cb_
 /// @param cb Pointer to the callback function
 /// @param arg A user-defined argument to be passed to the callback on execution.  Can be NULL.
 /// @return 0 upon success, -1 on failure
-int waveform_register_status_cb(struct waveform_t* waveform, char* status_name, waveform_status_cb_t *cb, void *arg);
+int waveform_register_status_cb(struct waveform_t* waveform, char* status_name, waveform_cmd_cb_t *cb, void *arg);
 
 /// @brief Register a command callback.
 /// @details Registers a callback is called when a waveform command is requested.
@@ -131,7 +135,7 @@ int waveform_register_status_cb(struct waveform_t* waveform, char* status_name, 
 /// @param cb Pointer to the callback function
 /// @param arg A user-defined argument to be passed to the callback on execution.  Can be NULL.
 /// @return 0 upon success, -1 on failure
-int waveform_register_command_cb(struct waveform_t* waveform, char *command_name, waveform_command_cb_t *cb, void *arg);
+int waveform_register_command_cb(struct waveform_t* waveform, char *command_name, waveform_cmd_cb_t *cb, void *arg);
 
 /// @brief Runs the event loop
 /// @details This function should be called when you have registered all of your callbacks for the waveform and are
@@ -159,7 +163,7 @@ void waveform_evt_loop(void);
 /// @param arg A user-defined argument to be passed to the callback on execution.  Can be NULL.
 /// @param command A format string in printf(3) format.
 /// @param ... Arguments for format specification
-int send_api_command_cb(struct waveform_t* waveform, waveform_init_cb_t* cb, void* arg, char* command, ...)
+int send_api_command_cb(struct waveform_t* waveform, waveform_response_cb_t* cb, void* arg, char* command, ...)
 
 //  XXX Need meter API
 
