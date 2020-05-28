@@ -151,8 +151,8 @@ void waveform_evt_loop(void);
 /// @param command A format string in printf(3) format.
 /// @param ... Arguments for format specification
 //int send_api_command(struct waveform_t* waveform, char* command, ...);
-#define send_api_command(waveform, command, ...) \
-   send_api_command_cb(waveform, NULL, NULL, command, ##__VA_ARGS__)
+#define waveform_send_api_command(waveform, command, ...) \
+   waveform_send_api_command_cb(waveform, NULL, NULL, command, ##__VA_ARGS__)
 
 /// @brief Sends a command to the radio and invokes callback
 /// @details This version of the command processing waits for a response from the radio and invokes your desired
@@ -163,7 +163,7 @@ void waveform_evt_loop(void);
 /// @param arg A user-defined argument to be passed to the callback on execution.  Can be NULL.
 /// @param command A format string in printf(3) format.
 /// @param ... Arguments for format specification
-int send_api_command_cb(struct waveform_t* waveform, waveform_response_cb_t* cb, void* arg, char* command, ...)
+void waveform_send_api_command_cb(struct waveform_t* waveform, waveform_response_cb_t* cb, void* arg, char* command, ...)
 
 //  XXX Need meter API
 
