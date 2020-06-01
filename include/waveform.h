@@ -59,14 +59,14 @@ typedef void (*waveform_cmd_cb_t)(waveform_t* waveform, char* command, void *arg
 ///          VITA-49 handling thread, so you will block the thread and the ability to receive data if you take too
 ///          long processing data.  It is recommended that you create a buffer system to get the data off of this
 ///          thread as quickly as possible and do your processing in a separate thread.  Be efficient about this
-///          function as it will be called thousands of times a second when the waveform is active.
+///          function as it will be called thousands of times a second when the waveform is active.  Samples are
+///          returned as 32-bit floats in host byte order.  They are in pairs, I first and Q second.
 /// @param waveform The waveform receiving data
 /// @param data A pointer to the received data
 /// @param data_size the size in bytes of the data in *data
 /// @param arg A user-defined argument passed to the data callback creation functions.
 typedef void (*waveform_data_cb_t)(waveform_t* waveform, void* data, size_t data_size, void* arg);
 
-//  You are expected to be through with *message when you return.  We will free it.  Copy if needed.
 /// @brief Called when a response to a waveform command is received
 /// @details This is called when a response is received to a command you issued to your waveform.
 /// @param waveform The waveform the command was executed on
