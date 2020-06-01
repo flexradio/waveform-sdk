@@ -1,4 +1,4 @@
-// SPDX-Licence-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: GPL-3.0-or-later
 /// @file waveform.h
 /// @brief Public definitions of waveform library functions
 /// @authors Annaliese McDermond <anna@flex-radio.com>
@@ -41,17 +41,39 @@ enum waveform_units {
     NONE
 };
 
-enum waveform_state {
-    ACTIVE,
-    INACTIVE
-};
+/// @brief Called when the waveform state changes
+/// @details When the waveform changes state this callback is called to inform the waveform plugin of that fact.
+/// @param waveform The waveform activating or deactivating.
+/// @param arg A user-defined argument passed to waveform_register_activate_cb() or waveform_register_deactivate_cb()
+typedef void (*waveform_state_cb_t)(waveform_t* waveform, enum waveform_state state, void *arg);
 
-//  Callback formats
-typedef int (*waveform_state_cb_t)(waveform_t* waveform, enum waveform_state state, void *arg);
-typedef int (*waveform_cmd_cb_t)(waveform_t* waveform, char* command, void *arg);
-typedef int (*waveform_data_cb_t)(waveform_t* waveform, void* data, size_t data_size, void* arg);
+/// @brief Called when a command is requested
+/// @details when a command is requested from the client, this callback is called.
+/// @param waveform The waveform the command was given to
+/// @param command The string representing the command
+/// @param arg A user-defined argument passed to waveform_register_command()
+typedef void (*waveform_cmd_cb_t)(waveform_t* waveform, char* command, void *arg);
+
+/// @brief Called when data is ready for the waveform
+/// @details When new data arrives for the waveform, this callback is called.  This callback will execute on the
+///          VITA-49 handling thread, so you will block the thread and the ability to receive data if you take too
+///          long processing data.  It is recommended that you create a buffer system to get the data off of this
+///          thread as quickly as possible and do your processing in a separate thread.  Be efficient about this
+///          function as it will be called thousands of times a second when the waveform is active.
+/// @param waveform The waveform receiving data
+/// @param data A pointer to the received data
+/// @param data_size the size in bytes of the data in *data
+/// @param arg A user-defined argument passed to the data callback creation functions.
+typedef void (*waveform_data_cb_t)(waveform_t* waveform, void* data, size_t data_size, void* arg);
 
 //  You are expected to be through with *message when you return.  We will free it.  Copy if needed.
+/// @brief Called when a response to a waveform command is received
+/// @details This is called when a response is received to a command you issued to your waveform.
+/// @param waveform The waveform the command was executed on
+/// @param code The return code of the command.
+/// @param message The text message from the command result.  Upon completion of this callback the storage for this
+///                string will be freed.  If you need it past the context of this callback function you should copy
+///                it to storage that you allocate.
 typedef void (*waveform_response_cb_t)(waveform_t* waveform, int code, char* message);
 
 /// @brief Create a waveform.
