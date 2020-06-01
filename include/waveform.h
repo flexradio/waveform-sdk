@@ -45,7 +45,7 @@ enum waveform_units {
 // XXX How many of these do we need?  A separate one for each?  A common one?  Event/data?
 typedef int (*waveform_state_cb_t)(waveform_t* waveform, void *arg);
 typedef int (*waveform_cmd_cb_t)(waveform_t* waveform, char* command, void *arg);
-typedef int (*waveform_data_cb_t)(waveform_t* waveform, void* data, void* arg);
+typedef int (*waveform_data_cb_t)(waveform_t* waveform, void* data, size_t data_size, void* arg);
 
 //  You are expected to be through with *message when you return.  We will free it.  Copy if needed.
 typedef void (*waveform_response_cb_t)(waveform_t* waveform, int code, char* message);
