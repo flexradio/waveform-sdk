@@ -41,8 +41,13 @@ enum waveform_units {
     NONE
 };
 
+enum waveform_state {
+    ACTIVE,
+    INACTIVE
+};
+
 //  Callback formats
-typedef int (*waveform_state_cb_t)(waveform_t* waveform, void *arg);
+typedef int (*waveform_state_cb_t)(waveform_t* waveform, enum waveform_state state, void *arg);
 typedef int (*waveform_cmd_cb_t)(waveform_t* waveform, char* command, void *arg);
 typedef int (*waveform_data_cb_t)(waveform_t* waveform, void* data, size_t data_size, void* arg);
 
