@@ -23,6 +23,23 @@
 
 // Opaque structure to keep track of the waveform.
 struct waveform_t;
+struct waveform_meter_t;
+struct waveform_meter_list_t;
+
+enum waveform_units {
+    DB,
+    DBM,
+    DBFS,
+    VOLTS,
+    AMPS,
+    RPM,
+    TEMP_F,
+    TEMP_C,
+    SWR,
+    WATTS,
+    PERCENT,
+    NONE
+};
 
 //  Callback formats
 // XXX How many of these do we need?  A separate one for each?  A common one?  Event/data?
@@ -163,8 +180,65 @@ void waveform_evt_loop(void);
 /// @param arg A user-defined argument to be passed to the callback on execution.  Can be NULL.
 /// @param command A format string in printf(3) format.
 /// @param ... Arguments for format specification
-void waveform_send_api_command_cb(struct waveform_t* waveform, waveform_response_cb_t* cb, void* arg, char* command, ...)
+void waveform_send_api_command_cb(struct waveform_t* waveform, waveform_response_cb_t* cb, void* arg, char* command, ...);
 
-//  XXX Need meter API
+/// @brief Creates a list of meters to be sent to the radio
+/// @details The meter list is intended to be reusable multiple times.  The implementation will clear the values
+///          of each of the meters after sending them to the radio.  You may have multiple meter lists that send
+///          a group of meters to the radio simultaneously. A meter can only be a part of one meter list at a time.
+///          Please keep in mind that each list that gets sent causes a packet to be created and sent, which takes
+///          a not insignificant amount of time; be efficient.  You are required to destory the meter list using
+///          waveform_meter_list_destroy() when you are done using the list.
+/// @param waveform Pointer to the waveform structure returned by waveform_create()
+/// @returns An empty list of meters
+waveform_meter_list_t waveform_meter_list_create(struct waveform_t* waveform);
+
+/// @brief Adds a new meter to a meter list
+/// @details Adds a new meter to a meter list and registers it with the radio.
+/// @param meter_list An already created meter list
+/// @param name the name of the meter
+/// @param min The minimum value the meter can take on
+/// @param max The maximum value the meter can take on
+/// @param unit The unit of the meter
+/// @returns 0 for success and -1 for failure
+int waveform_register_meter(struct waveform_meter_list_t meter_list, char* name, float min, float max, enum waveform_units unit);
+
+/// @brief Finds a meter in a list
+/// @details Given a name, find the meter in a meter list.
+/// @param meter_list The list of meters in which to find the meter
+/// @param name The name of the meter
+/// @returns an opaque structure representing the meter or NULL if the meter was not found.
+waveform_meter_t* waveform_meter_find(struct waveform_meter_list_t meter_list, char *name);
+
+/// @brief Sets the value of the meter
+/// @details Sets the value of a meter in preparation for sending.  waveform_meter_list_send() will clear all the
+///          values in the meter list upon sending, so you will have to reset the meter each time you want to perform
+///          an update.
+/// @param meter The opaque structure representing the meter obtained by using waveform_meter_find()
+/// @param value The value of the meter
+void waveform_meter_set_value(struct waveform_meter_t meter, float value);
+
+/// @brief Sets the value of a meter given the name
+/// @details This has the same functionality as a waveform_meter_find() followed by a waveform_meter_set_value()
+/// @param meter_list The list of meters in which to find the meter
+/// @param name The name of the meter to set
+/// @param value The value of the meter
+/// @returns -1 if the meter name cannot be found in the list, otherwise 0 for success.
+int waveform_meter_set_value_by_name(struct waveform_meter_list_t meter_list, char* name, float value);
+
+/// @brief Send a meter list to the radio
+/// @details The meter values in the list will be sent to the radio.  Note that this will cause one or more UDP packets
+///          to be send and is therefore not a "cheap" operation.  As many meters as possible should be combined into
+///          a list and sent simultaneously.
+/// @param meter_list The list of meters to send
+/// @returns 0 for success or -1 for failure
+int waveform_meter_list_send(struct waveform_meter_list_t meter_list);
+
+/// @brief Frees a meter list
+/// @details Use this function during shutdown when you are completely done with sending meters to destroy the meter
+///          list.  Meter lists are reusable entities and you should be refilling and recycling them on each send
+///          rather than allocating new ones.
+/// @param meter_list The list of meters
+void waveform_meter_list_destroy(struct waveform_meter_list_t meter_list);
 
 #endif //WAVEFORM_SDK_WAVEFORM_H
