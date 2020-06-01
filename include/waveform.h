@@ -42,7 +42,6 @@ enum waveform_units {
 };
 
 //  Callback formats
-// XXX How many of these do we need?  A separate one for each?  A common one?  Event/data?
 typedef int (*waveform_state_cb_t)(waveform_t* waveform, void *arg);
 typedef int (*waveform_cmd_cb_t)(waveform_t* waveform, char* command, void *arg);
 typedef int (*waveform_data_cb_t)(waveform_t* waveform, void* data, size_t data_size, void* arg);
@@ -167,7 +166,6 @@ void waveform_evt_loop(void);
 /// @param waveform Pointer to the waveform structure returned by waveform_create()
 /// @param command A format string in printf(3) format.
 /// @param ... Arguments for format specification
-//int send_api_command(struct waveform_t* waveform, char* command, ...);
 #define waveform_send_api_command(waveform, command, ...) \
    waveform_send_api_command_cb(waveform, NULL, NULL, command, ##__VA_ARGS__)
 
