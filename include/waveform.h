@@ -21,11 +21,17 @@
 #ifndef WAVEFORM_SDK_WAVEFORM_H
 #define WAVEFORM_SDK_WAVEFORM_H
 
-// Opaque structure to keep track of the waveform.
+/// @struct waveform_t
+/// @brief Opaque structure to keep track of the waveform.
 struct waveform_t;
+/// @struct waveform_meter_t
+/// @brief Opaque structure for a meter object
 struct waveform_meter_t;
+/// @struct waveform_meter_list_t
+/// @brief Opaque structure for a meter list object
 struct waveform_meter_list_t;
 
+/// @brief Enumeration for waveform meter units
 enum waveform_units {
     DB,
     DBM,
