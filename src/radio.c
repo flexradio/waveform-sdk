@@ -16,8 +16,7 @@
 #include <event2/event.h>
 #include <event2/bufferevent.h>
 #include <event2/buffer.h>
-#include <event2/visibility.h>
-#include <event2/event-config.h>
+#include <event2/thread.h>
 
 #include <sds.h>
 
@@ -325,11 +324,11 @@ static void* radio_evt_loop(void *arg)
 {
     struct radio_t* radio = (struct radio_t *) arg;
 
-//    evthread_use_pthreads();
+    evthread_use_pthreads();
 
     radio->base = event_base_new();
 
-    radio->bev = bufferevent_socket_new(radio->base, -1, BEV_OPT_CLOSE_ON_FREE);  // BEV_OPT_THREADSAFE here?
+    radio->bev = bufferevent_socket_new(radio->base, -1, BEV_OPT_CLOSE_ON_FREE|BEV_OPT_THREADSAFE);
     if (!radio->bev) {
         fprintf(stderr,"Could not create buffer event socket\n");
         goto eb_abort;
