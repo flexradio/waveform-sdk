@@ -40,7 +40,7 @@ endif()
 #add_test(NAME example_test COMMAND example)
 
 
-add_executable(Google_Tests_run UtilTests.cpp)
+add_executable(Google_Tests_run UtilTests.cpp WaveformTests.cpp)
 include_directories(${waveform_sdk_SOURCE_DIR}/src)
 #target_include_directories(Google_Tests_run PRIVATE "../src")
 target_link_libraries(Google_Tests_run waveform)

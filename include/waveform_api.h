@@ -18,13 +18,18 @@
 /// along with this program. If not, see <http://www.gnu.org/licenses/>.
 ///
 
-#ifndef WAVEFORM_SDK_WAVEFORM_H
-#define WAVEFORM_SDK_WAVEFORM_H
+#ifndef WAVEFORM_SDK_WAVEFORM_API_H
+#define WAVEFORM_SDK_WAVEFORM_API_H
+
+#include <sys/types.h>
+#include <netinet/in.h>
 
 // Opaque structure to keep track of the waveform.
 struct waveform_t;
 struct waveform_meter_t;
 struct waveform_meter_list_t;
+struct radio_t;
+struct waveform_args_t;
 
 enum waveform_units {
     DB,
@@ -41,18 +46,27 @@ enum waveform_units {
     NONE
 };
 
+enum waveform_state {
+    ACTIVE,
+    INACTIVE,
+    PTT_REQUESTED,
+    UNKEY_REQUESTED
+};
+
 /// @brief Called when the waveform state changes
 /// @details When the waveform changes state this callback is called to inform the waveform plugin of that fact.
 /// @param waveform The waveform activating or deactivating.
 /// @param arg A user-defined argument passed to waveform_register_activate_cb() or waveform_register_deactivate_cb()
-typedef void (*waveform_state_cb_t)(waveform_t* waveform, enum waveform_state state, void *arg);
+typedef void (*waveform_state_cb_t)(struct waveform_t* waveform, enum waveform_state state, void *arg);
 
 /// @brief Called when a command is requested
 /// @details when a command is requested from the client, this callback is called.
 /// @param waveform The waveform the command was given to
 /// @param command The string representing the command
+/// @param argc The number of arguments to the command
+/// @param argv The arguments to the command.
 /// @param arg A user-defined argument passed to waveform_register_command()
-typedef void (*waveform_cmd_cb_t)(waveform_t* waveform, char* command, void *arg);
+typedef void (*waveform_cmd_cb_t)(struct waveform_t *waveform, unsigned int argc, char *argv[], void *arg);
 
 /// @brief Called when data is ready for the waveform
 /// @details When new data arrives for the waveform, this callback is called.  This callback will execute on the
@@ -65,7 +79,7 @@ typedef void (*waveform_cmd_cb_t)(waveform_t* waveform, char* command, void *arg
 /// @param data A pointer to the received data
 /// @param data_size the size in bytes of the data in *data
 /// @param arg A user-defined argument passed to the data callback creation functions.
-typedef void (*waveform_data_cb_t)(waveform_t* waveform, void* data, size_t data_size, void* arg);
+typedef void (*waveform_data_cb_t)(struct waveform_t* waveform, void* data, size_t data_size, void* arg);
 
 /// @brief Called when a response to a waveform command is received
 /// @details This is called when a response is received to a command you issued to your waveform.
@@ -74,7 +88,7 @@ typedef void (*waveform_data_cb_t)(waveform_t* waveform, void* data, size_t data
 /// @param message The text message from the command result.  Upon completion of this callback the storage for this
 ///                string will be freed.  If you need it past the context of this callback function you should copy
 ///                it to storage that you allocate.
-typedef void (*waveform_response_cb_t)(waveform_t* waveform, int code, char* message);
+typedef void (*waveform_response_cb_t)(struct waveform_t* waveform, int code, char* message);
 
 /// @brief Create a waveform.
 /// @details Creates a waveform for processing.  This will register the waveform with the SDK and set it up to be
@@ -89,7 +103,7 @@ typedef void (*waveform_response_cb_t)(waveform_t* waveform, int code, char* mes
 /// @return A pointer to an allocated structure representing the waveform.  This structure is opaque and you should not
 ///         attempt to modify it in any way.  You are responsible for freeing the structure using waveform_destroy()
 ///         when you are done with it.
-struct waveform_t* waveform_create(char* name, char* short_name, char* underlying_mode);
+struct waveform_t* waveform_create(struct radio_t *radio, char *name, char *short_name, char *underlying_mode, char *version);
 
 /// @brief Destroy a waveform
 /// @details Destroys a previously allocated waveform freeing all resources it consumes.
@@ -116,7 +130,16 @@ int waveform_register_activate_cb(struct waveform_t* waveform, waveform_state_cb
 /// @param cb A pointer to the callback function
 /// @param arg A user-defined argument to be passed to the callback upon execution.  Can be NULL.
 /// @return 0 upon success, -1 on failure
-int waveform_register_deactivate_cb(struct waveform_t* waveform, waveform_state_cb_t *cb, void *arg);
+int waveform_register_deactivate_cb(struct waveform_t* waveform, waveform_state_cb_t cb, void *arg);
+
+/// @brief Register a stauts change callback for a waveform.
+/// @details When the slice to which the waveform is attached changes state, such as activating or deactivating the
+///          waveform, or tx/rx state changes, this callback is called.
+/// @param waveform Pointer to the waveform structure returned by waveform_create()
+/// @param cb A pointer to the callback function
+/// @param arg A user-defined argument to be passed to the callback upon execution. Can be NULL.
+/// @return 0 upon succes, -1 on failure
+int waveform_register_state_cb(struct waveform_t *waveform, waveform_state_cb_t cb, void *arg);
 
 /// @brief Register a transmitter data callback for a waveform.
 /// @details Registers a callback that is called when there is data from the incoming audio source to be transmitted.
@@ -167,7 +190,7 @@ int waveform_register_rx_prepare_cb(struct waveform_t* waveform, waveform_state_
 /// @param cb Pointer to the callback function
 /// @param arg A user-defined argument to be passed to the callback on execution.  Can be NULL.
 /// @return 0 upon success, -1 on failure
-int waveform_register_status_cb(struct waveform_t* waveform, char* status_name, waveform_cmd_cb_t *cb, void *arg);
+int waveform_register_status_cb(struct waveform_t* waveform, char* status_name, waveform_cmd_cb_t cb, void *arg);
 
 /// @brief Register a command callback.
 /// @details Registers a callback is called when a waveform command is requested.
@@ -205,7 +228,8 @@ void waveform_evt_loop(void);
 /// @param arg A user-defined argument to be passed to the callback on execution.  Can be NULL.
 /// @param command A format string in printf(3) format.
 /// @param ... Arguments for format specification
-void waveform_send_api_command_cb(struct waveform_t* waveform, waveform_response_cb_t* cb, void* arg, char* command, ...);
+/// @returns The sequence number on success or -1 on failure.
+long waveform_send_api_command_cb(struct waveform_t* waveform, waveform_response_cb_t cb, void* arg, char* command, ...);
 
 /// @brief Creates a list of meters to be sent to the radio
 /// @details The meter list is intended to be reusable multiple times.  The implementation will clear the values
@@ -216,7 +240,7 @@ void waveform_send_api_command_cb(struct waveform_t* waveform, waveform_response
 ///          waveform_meter_list_destroy() when you are done using the list.
 /// @param waveform Pointer to the waveform structure returned by waveform_create()
 /// @returns An empty list of meters
-waveform_meter_list_t waveform_meter_list_create(struct waveform_t* waveform);
+struct waveform_meter_list_t waveform_meter_list_create(struct waveform_t* waveform);
 
 /// @brief Adds a new meter to a meter list
 /// @details Adds a new meter to a meter list and registers it with the radio.
@@ -233,7 +257,7 @@ int waveform_register_meter(struct waveform_meter_list_t meter_list, char* name,
 /// @param meter_list The list of meters in which to find the meter
 /// @param name The name of the meter
 /// @returns an opaque structure representing the meter or NULL if the meter was not found.
-waveform_meter_t* waveform_meter_find(struct waveform_meter_list_t meter_list, char *name);
+struct waveform_meter_t* waveform_meter_find(struct waveform_meter_list_t meter_list, char *name);
 
 /// @brief Sets the value of the meter
 /// @details Sets the value of a meter in preparation for sending.  waveform_meter_list_send() will clear all the
@@ -266,4 +290,9 @@ int waveform_meter_list_send(struct waveform_meter_list_t meter_list);
 /// @param meter_list The list of meters
 void waveform_meter_list_destroy(struct waveform_meter_list_t meter_list);
 
+// XXX Radio handling commands.  Document these.
+struct radio_t* waveform_radio_create(struct sockaddr_in *addr);
+void waveform_radio_destroy(struct radio_t *radio);
+int waveform_radio_wait(struct radio_t *radio);
+int waveform_radio_start(struct radio_t *radio);
 #endif //WAVEFORM_SDK_WAVEFORM_H

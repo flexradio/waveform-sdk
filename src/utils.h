@@ -1,4 +1,4 @@
-// SPDX-Licence-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: GPL-3.0-or-later
 /*
  * utils.h - General Utilities
  *
@@ -26,7 +26,11 @@
 #ifndef UTILS_H_
 #define UTILS_H_
 
+#include <sds.h>
+
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
+
+#define MAX_ARGS 128
 
 typedef int (*dispatch_handler_t)(char **, int);
 
@@ -35,12 +39,26 @@ struct dispatch_entry {
     dispatch_handler_t handler;
 };
 
+struct waveform_args_t {
+    char *line;
+    //  Positional Arguments
+    int argc;
+    char *argv[MAX_ARGS];
+
+    //  Keyword Arguments
+    struct kwarg *kwargs;
+};
+
 void output(const char *fmt,...);
 int parse_argv(char *string, char **argv, int max_args);
+struct waveform_args_t *parse_args(char *line);
 short float_to_fixed(double input, unsigned char fractional_bits);
 int dispatch_from_table(char *message, const struct dispatch_entry *dispatch_table);
 struct kwarg *parse_kwargs(char **argv, int argc, int start);
-char *find_kwarg(struct kwarg *args, char *key);
+sds find_kwarg(int argc, sds *argv, sds key);
 void kwargs_destroy(struct kwarg **args);
+
+
+
 
 #endif /* UTILS_H_ */

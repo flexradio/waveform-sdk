@@ -31,9 +31,9 @@
 #include <stdlib.h>
 #include <ctype.h>
 
-#include "utils.h"
+#include <sds.h>
 
-#define MAX_ARGS 128
+#include "utils.h"
 
 void output(const char *fmt,...)
 {
@@ -68,11 +68,11 @@ static void kwarg_add(struct kwarg **args, char *token)
     current_arg->value = current_arg->key = token;
     strsep(&current_arg->value, "=");
     if (current_arg->value == NULL) {
-        output("Couldn't find delimeter in %s\n", token);
         current_arg->value = "";
     }
 }
 
+// XXX Fix me?
 void kwargs_destroy(struct kwarg **args)
 {
     struct kwarg *current_arg, *next_arg;
@@ -83,14 +83,36 @@ void kwargs_destroy(struct kwarg **args)
     *args = NULL;
 }
 
-char *find_kwarg(struct kwarg *args, char *key)
-{
-    if (args == NULL)
-        return NULL;
+//char *find_kwarg(struct kwarg *args, char *key)
+//{
+//    if (args == NULL || key == NULL)
+//        return NULL;
+//
+//    for(struct kwarg *current_arg = args; current_arg != NULL; current_arg = current_arg->next) {
+//        if(strcmp(current_arg->key, key) == 0) {
+//            return current_arg->value;
+//        }
+//    }
+//
+//    return NULL;
+//}
 
-    for(struct kwarg *current_arg = args; current_arg != NULL; current_arg = current_arg->next) {
-        if(strcmp(current_arg->key, key) == 0) {
-            return current_arg->value;
+sds find_kwarg(int argc, sds *argv, sds key)
+{
+    for(int i = 0; i < argc; ++i) {
+        int count;
+
+        sds *kvp = sdssplitlen(argv[i], sdslen(argv[i]), "=", 1, &count);
+        if (count != 2) {
+            sdsfreesplitres(kvp, count);
+            continue;
+        }
+
+        if (strcmp(kvp[0], key) == 0) {
+            sds value = kvp[1];
+            kvp[1] = NULL;
+            sdsfreesplitres(kvp, count);
+            return value;
         }
     }
 
@@ -115,6 +137,36 @@ static char *trim(char *string)
     end[1] = '\0';
 
     return string;
+}
+
+struct waveform_args_t *parse_args(char *line) {
+    struct waveform_args_t *args = (struct waveform_args_t *) calloc(1, sizeof(struct waveform_args_t));
+    if (!args) {
+        return NULL;
+    }
+
+    trim(line);
+    args->line = strdup(line);
+
+    // XXX This needs optimization and tuning
+    // XXX This could all be done in one loop through.
+    int total_args = parse_argv(line, args->argv, MAX_ARGS);
+    for (int i = 0; i < MAX_ARGS; ++i) {
+        if ( strchr(args->argv[i], '=') ) {
+            args->argc = i;
+            break;
+        }
+    }
+    args->kwargs = parse_kwargs(args->argv, total_args, args->argc);
+
+    return args;
+}
+
+void free_args(struct waveform_args_t *args)
+{
+    kwargs_destroy(&args->kwargs);
+    free(args->line);
+    free(args);
 }
 
 int parse_argv(char *string, char **argv, int max_args)
