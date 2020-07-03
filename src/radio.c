@@ -337,7 +337,7 @@ static void* radio_evt_loop(void *arg)
     bufferevent_setcb(radio->bev, radio_read_cb, NULL, radio_event_cb, radio);
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "hicpp-signed-bitwise"
-    if (bufferevent_enable(radio->bev, EV_READ|EV_WRITE)) { //  Do we really need write here?
+    if (bufferevent_enable(radio->bev, EV_READ|EV_WRITE)) { //  XXX Do we really need write here?
 #pragma clang diagnostic pop
         fprintf(stderr, "Could not enable buffer event\n");
         goto bev_abort;
