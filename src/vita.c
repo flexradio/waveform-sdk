@@ -33,10 +33,7 @@ static void vita_read_cb(evutil_socket_t socket, short what, void *ctx)
     }
 
     unsigned long payload_length = ((htons(packet.length) * sizeof(uint32_t)) - VITA_PACKET_HEADER_SIZE);
-    unsigned int num_samples = payload_length / sizeof(uint32_t);
     uint32_t *samples = packet.if_samples;
-
-
 
     if(payload_length != bytes_received - VITA_PACKET_HEADER_SIZE) {
         fprintf(stderr, "VITA header size doesn't match bytes read from network (%lu != %ld - %lu) -- %lu\n",
@@ -44,8 +41,8 @@ static void vita_read_cb(evutil_socket_t socket, short what, void *ctx)
         return;
     }
 
-    for (unsigned int i = 0; i < num_samples / 2; ++i)
-        samples[i] = ntohl(samples[i * 2]);
+    for (unsigned int i = 0; i < payload_length / sizeof(uint32_t); ++i)
+        samples[i] = ntohl(samples[i]);
 
     if (!(htonl(packet.stream_id) & 0x0001u)) {
         //  Receive Packet Processing
