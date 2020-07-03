@@ -447,15 +447,7 @@ int waveform_radio_start(struct radio_t *radio) {
         fprintf(stderr, "Creating thread: %s\n", strerror(ret));
         return -1;
     }
-//    struct sched_param thread_fifo_priority = {
-//            .sched_priority = sched_get_priority_max(SCHED_FIFO)
-//    };
-//    ret = pthread_setschedparam(radio->thread, SCHED_FIFO, &thread_fifo_priority);
-//    if(ret) {
-//        free(radio);
-//        fprintf(stderr, "Setting thread to realtime: %s\n", strerror(ret));
-//        return NULL;
-//    }
+
     return 0;
 }
 

@@ -59,6 +59,15 @@ static void* vita_evt_loop(void *arg)
 {
     struct waveform_t *wf = (struct waveform_t *) arg;
     struct vita *vita = &(wf->vita);
+    int ret;
+
+    struct sched_param thread_fifo_priority = {
+        .sched_priority = sched_get_priority_max(SCHED_FIFO)
+    };
+    ret = pthread_setschedparam(pthread_self(), SCHED_FIFO, &thread_fifo_priority);
+    if(ret) {
+        fprintf(stderr, "Setting thread to realtime: %s\n", strerror(ret));
+    }
 
     struct sockaddr_in bind_addr =  {
             .sin_family = AF_INET,
