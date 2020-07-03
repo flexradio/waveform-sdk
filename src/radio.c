@@ -18,6 +18,8 @@
 #include <event2/buffer.h>
 #include <event2/thread.h>
 
+#include <pthread_workqueue.h>
+
 #include <sds.h>
 
 #include "utils.h"
@@ -69,11 +71,34 @@ static void mode_change(struct radio_t *radio, sds mode, char slice)
     }
 }
 
+struct status_cb_wq_desc {
+    struct waveform_t *wf;
+    sds message;
+    struct waveform_cb_list *cb;
+};
+
+static void radio_call_status_cb(void *arg)
+{
+    int argc;
+    struct status_cb_wq_desc *desc = (struct status_cb_wq_desc *) arg;
+
+    sds *argv = sdssplitargs(desc->message, &argc);
+    if (argc < 1) {
+        sdsfree(desc->message);
+        free(desc);
+        return;
+    }
+
+    (desc->cb->cmd_cb)(desc->wf, argc, argv, desc->cb->arg);
+
+    sdsfreesplitres(argv, argc);
+    sdsfree(desc->message);
+    free(desc);
+}
 
 static void process_status_message(struct radio_t *radio, sds message)
 {
     int argc;
-//    struct waveform_status_cb_ops *cur_ops;
 
     sds *argv = sdssplitargs(message, &argc);
     if (argc < 1) {
@@ -105,9 +130,19 @@ static void process_status_message(struct radio_t *radio, sds message)
 
     radio_waveforms_for_each(radio, cur_wf) {
         waveform_cb_for_each(cur_wf, status_cbs, cur_cb) {
-            (cur_cb->cmd_cb)(cur_wf, argc, argv, cur_cb->arg);
+            struct status_cb_wq_desc *desc = (struct status_cb_wq_desc *) calloc(1, sizeof(struct status_cb_wq_desc));
+            pthread_workitem_handle_t handle;
+            unsigned int gencountp;
+
+            desc->wf = cur_wf;
+            desc->message = sdsdup(message);
+            desc->cb = cur_cb;
+
+            pthread_workqueue_additem_np(radio->cb_wq, radio_call_status_cb, desc, &handle, &gencountp);
         }
     }
+
+    sdsfreesplitres(argv, argc);
 }
 
 static void radio_process_line(struct radio_t *radio, sds line)
@@ -367,6 +402,8 @@ struct radio_t *waveform_radio_create(struct sockaddr_in *addr) {
 
     memcpy(&radio->addr, addr, sizeof(struct sockaddr_in));
 
+    pthread_workqueue_init_np();
+
     return radio;
 }
 
@@ -376,6 +413,33 @@ void waveform_radio_destroy(struct radio_t *radio) {
 
 int waveform_radio_start(struct radio_t *radio) {
     int ret;
+    pthread_workqueue_attr_t wq_attr;
+
+    ret = pthread_workqueue_attr_init_np(&wq_attr);
+    if (ret) {
+        fprintf(stderr, "Creating WQ attributes: %s\n", strerror(ret));
+        return -1;
+    }
+
+    ret = pthread_workqueue_attr_setovercommit_np(&wq_attr, 1);
+    if (ret) {
+        fprintf(stderr, "Couldn't set WQ to overcommit: %s\n", strerror(ret));
+        //  Purposely not returning here because this is a non-fatal error.  Things will still work,
+        //  but potentially suck.
+    }
+
+    ret = pthread_workqueue_attr_setqueuepriority_np(&wq_attr, WORKQ_DEFAULT_PRIOQUEUE);
+    if (ret) {
+        fprintf(stderr, "Couldn't set WQ priority: %s\n", strerror(ret));
+        //  Purposely not returning here because this is a non-fatal error.  Things will still work,
+        //  but potentially suck.
+    }
+
+    ret = pthread_workqueue_create_np(&radio->cb_wq, &wq_attr);
+    if (ret) {
+        fprintf(stderr, "Couldn't create callback WQ: %s\n", strerror(ret));
+        return -1;
+    }
 
     ret = pthread_create(&radio->thread, NULL, radio_evt_loop, radio);
     if(ret) {
