@@ -8,11 +8,11 @@
 #include <waveform_api.h>
 
 static void echo_command(struct waveform_t *waveform, unsigned int argc, char *argv[], void *arg) {
-//    fprintf(stderr, "Got a status for %s\n", argv[0]);
-//    fprintf(stderr, "Number of args is %u\n", argc);
-//    for(int i = 0; i < argc; ++i) {
-//        fprintf(stderr, "ARG #%u: %s\n", i, argv[i]);
-//    }
+    fprintf(stderr, "Got a status for %s\n", argv[0]);
+    fprintf(stderr, "Number of args is %u\n", argc);
+    for(int i = 0; i < argc; ++i) {
+        fprintf(stderr, "ARG #%u: %s\n", i, argv[i]);
+    }
 }
 
 static void state_test(struct waveform_t *waveform, enum waveform_state state, void *arg) {
