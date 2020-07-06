@@ -30,6 +30,7 @@ struct waveform_meter_t;
 struct waveform_meter_list_t;
 struct radio_t;
 struct waveform_args_t;
+struct waveform_vita_packet;
 
 enum waveform_units {
     DB,

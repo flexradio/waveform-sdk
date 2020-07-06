@@ -19,8 +19,8 @@
 static void vita_read_cb(evutil_socket_t socket, short what, void *ctx)
 {
     struct vita *vita = (struct vita *) ctx;
-    ssize_t bytes_received = 0;
-    struct vita_packet packet;
+    ssize_t bytes_received;
+    struct waveform_vita_packet packet;
 
     if (!(what & EV_READ)) {
         fprintf(stderr, "Callback is not for a read?!\n");
@@ -33,18 +33,22 @@ static void vita_read_cb(evutil_socket_t socket, short what, void *ctx)
     }
 
     unsigned long payload_length = ((htons(packet.length) * sizeof(uint32_t)) - VITA_PACKET_HEADER_SIZE);
-    uint32_t *samples = packet.if_samples;
 
     if(payload_length != bytes_received - VITA_PACKET_HEADER_SIZE) {
         fprintf(stderr, "VITA header size doesn't match bytes read from network (%lu != %ld - %lu) -- %lu\n",
-                payload_length, bytes_received, VITA_PACKET_HEADER_SIZE, sizeof(struct vita_packet));
+                payload_length, bytes_received, VITA_PACKET_HEADER_SIZE, sizeof(struct waveform_vita_packet));
         return;
     }
 
-    for (unsigned int i = 0; i < payload_length / sizeof(uint32_t); ++i)
-        samples[i] = ntohl(samples[i]);
+    // Byte swap the whole packet because we're going to pass it to the user, and we'll assume they want
+    // host byte order, otherwise it's potentially confusing.
+    // Hopefully the compiler will vector optimzie this, because there should be NEON instructions for 4-wide
+    // byte flip.  If it doesn't, we should do it ourselves.
+    for (uint32_t *word = (uint32_t *) &packet; word < (uint32_t *) (&packet + 1); ++word) {
+        *word = ntohl(*word);
+    }
 
-    if (!(htonl(packet.stream_id) & 0x0001u)) {
+    if (!(packet.stream_id & 0x0001U)) {
         //  Receive Packet Processing
         vita->rx_stream_id = packet.stream_id;
     } else {

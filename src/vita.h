@@ -39,7 +39,7 @@
 #define STREAM_BITS_MASK	    (STREAM_BITS_IN | STREAM_BITS_OUT | STREAM_BITS_METER | STREAM_BITS_WAVEFORM)
 
 #pragma pack(push, 1)
-struct vita_packet {
+struct waveform_vita_packet {
     uint8_t packet_type;
     uint8_t timestamp_type;
     uint16_t length;
@@ -58,7 +58,7 @@ struct vita_packet {
 };
 #pragma pack(pop)
 
-#define VITA_PACKET_HEADER_SIZE (sizeof(struct vita_packet) - sizeof(((struct vita_packet){0}).raw_payload))
+#define VITA_PACKET_HEADER_SIZE (sizeof(struct waveform_vita_packet) - sizeof(((struct waveform_vita_packet){0}).raw_payload))
 
 struct vita {
     int sock;
