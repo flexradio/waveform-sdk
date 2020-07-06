@@ -38,7 +38,7 @@
 #include <semaphore.h>
 
 /* Environment setting */
-unsigned int PWQ_RT_THREADS = 0;
+unsigned int PWQ_RT_THREADS = 1;
 unsigned int PWQ_SPIN_THREADS = 0; // The number of threads that should be kept spinning
 unsigned volatile int current_threads_spinning = 0; // The number of threads currently spinning
 

@@ -29,7 +29,36 @@
 #include "platform.h"
 #include "private.h"
 
-void ptwq_set_current_thread_priority(int priority  __attribute__ ((unused)))
-{    
+void ptwq_set_current_thread_priority(int priority)
+{
+    int ret = 0;
+    struct sched_param thread_priority = {0};
+
+    dbg_printf("reconfiguring thread for priority level=%u", priority);
+
+    switch (priority)
+    {
+        case WORKQ_LOW_PRIOQUEUE:
+            fprintf(stderr, "Setting priority to low\n");
+            thread_priority.sched_priority = sched_get_priority_max(SCHED_IDLE);
+            break;
+        case WORKQ_DEFAULT_PRIOQUEUE:
+            fprintf(stderr, "Setting priority to default\n");
+            thread_priority.sched_priority = sched_get_priority_max(SCHED_OTHER);
+            break;
+        case WORKQ_HIGH_PRIOQUEUE:
+            fprintf(stderr, "Setting realtime priority\n");
+            thread_priority.sched_priority = sched_get_priority_max(SCHED_FIFO);
+            break;
+        default:
+            fprintf(stderr, "Unknown priority level = %u", priority);
+            break;
+    }
+
+    ret = pthread_setschedparam(pthread_self(), SCHED_FIFO, &thread_priority);
+    if(ret) {
+        fprintf(stderr, "Setting thread priority: %s\n", strerror(ret));
+    }
+
     return;
 }

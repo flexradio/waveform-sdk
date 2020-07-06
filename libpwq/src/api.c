@@ -66,7 +66,6 @@ pthread_workqueue_init_np(void)
 #endif
 
 #ifndef _WIN32
-    PWQ_RT_THREADS = (getenv("PWQ_RT_THREADS") == NULL) ? 0 : 1;
     PWQ_ACTIVE_CPU = (getenv("PWQ_ACTIVE_CPU") == NULL) ? 0 : atoi(getenv("PWQ_ACTIVE_CPU"));
     
     if (getenv("PWQ_SPIN_THREADS") != NULL)
