@@ -421,12 +421,12 @@ int waveform_radio_start(struct radio_t *radio) {
         return -1;
     }
 
-    ret = pthread_workqueue_attr_setovercommit_np(&wq_attr, 1);
-    if (ret) {
-        fprintf(stderr, "Couldn't set WQ to overcommit: %s\n", strerror(ret));
-        //  Purposely not returning here because this is a non-fatal error.  Things will still work,
-        //  but potentially suck.
-    }
+//    ret = pthread_workqueue_attr_setovercommit_np(&wq_attr, 1);
+//    if (ret) {
+//        fprintf(stderr, "Couldn't set WQ to overcommit: %s\n", strerror(ret));
+//        //  Purposely not returning here because this is a non-fatal error.  Things will still work,
+//        //  but potentially suck.
+//    }
 
     ret = pthread_workqueue_attr_setqueuepriority_np(&wq_attr, WORKQ_DEFAULT_PRIOQUEUE);
     if (ret) {

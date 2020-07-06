@@ -6,6 +6,7 @@
 #define WAVEFORM_SDK_VITA_H
 
 #include <event2/event.h>
+#include <pthread_workqueue.h>
 
 #define VITA_PACKET_TYPE_EXT_DATA_WITH_STREAM_ID	0x38u
 #define VITA_PACKET_TYPE_IF_DATA_WITH_STREAM_ID     0x18u
@@ -70,6 +71,7 @@ struct vita {
     unsigned int data_sequence;
     uint32_t tx_stream_id;
     uint32_t rx_stream_id;
+    pthread_workqueue_t cb_wq;
 };
 
 int vita_init(struct waveform_t *wf);

@@ -150,6 +150,26 @@ fail:
 int vita_init(struct waveform_t *wf)
 {
     int ret;
+    pthread_workqueue_attr_t wq_attr;
+
+    ret = pthread_workqueue_attr_init_np(&wq_attr);
+    if (ret) {
+        fprintf(stderr, "Creating WQ attributes: %s\n", strerror(ret));
+        return -1;
+    }
+
+    ret = pthread_workqueue_attr_setqueuepriority_np(&wq_attr, WORKQ_HIGH_PRIOQUEUE);
+    if (ret) {
+        fprintf(stderr, "Couldn't set WQ priority: %s\n", strerror(ret));
+        //  Purposely not returning here because this is a non-fatal error.  Things will still work,
+        //  but potentially really suck.
+    }
+
+    ret = pthread_workqueue_create_np(&wf->vita.cb_wq, &wq_attr);
+    if (ret) {
+        fprintf(stderr, "Couldn't create callback WQ: %s\n", strerror(ret));
+        return -1;
+    }
 
     ret = pthread_create(&wf->vita.thread, NULL, vita_evt_loop, wf);
     if (ret) {
