@@ -1,0 +1,18 @@
+# cmake output
+CMakeCache.txt
+CMakeFiles/
+CPackConfig.cmake
+CPackSourceConfig.cmake
+CTestTestfile.cmake
+Testing/
+_CPack_Packages/
+cmake_install.cmake
+install_manifest.txt
+kqueue-*.deb
+libkqueue.so
+test/CMakeCache.txt
+test/CMakeFiles/
+test/cmake_install.cmake
+
+*.o
+
