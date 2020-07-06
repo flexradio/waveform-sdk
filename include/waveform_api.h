@@ -24,14 +24,20 @@
 #include <sys/types.h>
 #include <netinet/in.h>
 
-// Opaque structure to keep track of the waveform.
+/// @struct waveform_t
+/// @brief Opaque structure to keep track of the waveform.
 struct waveform_t;
+/// @struct waveform_meter_t
+/// @brief Opaque structure for a meter object
 struct waveform_meter_t;
+/// @struct waveform_meter_list_t
+/// @brief Opaque structure for a meter list object
 struct waveform_meter_list_t;
 struct radio_t;
 struct waveform_args_t;
 struct waveform_vita_packet;
 
+/// @brief Enumeration for waveform meter units
 enum waveform_units {
     DB,
     DBM,
