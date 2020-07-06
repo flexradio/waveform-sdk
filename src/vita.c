@@ -43,7 +43,7 @@ static void vita_read_cb(evutil_socket_t socket, short what, void *ctx)
     // Byte swap the whole packet because we're going to pass it to the user, and we'll assume they want
     // host byte order, otherwise it's potentially confusing.
     // Hopefully the compiler will vector optimzie this, because there should be NEON instructions for 4-wide
-    // byte flip.  If it doesn't, we should do it ourselves.
+    // byte swap.  If it doesn't, we should do it ourselves.
     for (uint32_t *word = (uint32_t *) &packet; word < (uint32_t *) (&packet + 1); ++word) {
         *word = ntohl(*word);
     }
