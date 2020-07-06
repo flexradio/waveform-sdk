@@ -80,7 +80,7 @@ typedef void (*waveform_cmd_cb_t)(struct waveform_t *waveform, unsigned int argc
 /// @param data A pointer to the received data
 /// @param data_size the size in bytes of the data in *data
 /// @param arg A user-defined argument passed to the data callback creation functions.
-typedef void (*waveform_data_cb_t)(struct waveform_t* waveform, void* data, size_t data_size, void* arg);
+typedef void (*waveform_data_cb_t)(struct waveform_t* waveform, struct waveform_vita_packet *packet, size_t packet_size, void* arg);
 
 /// @brief Called when a response to a waveform command is received
 /// @details This is called when a response is received to a command you issued to your waveform.
@@ -160,7 +160,7 @@ int waveform_register_tx_data_cb(struct waveform_t* waveform, waveform_data_cb_t
 /// @param cb Pointer to the callback function
 /// @param arg A user-defined argument to be passed to the callback on execution.  Can be NULL.
 /// @return 0 upon success, -1 on failure
-int waveform_register_rx_data_cb(struct waveform_t* waveform, waveform_data_cb_t *cb, void *arg);
+int waveform_register_rx_data_cb(struct waveform_t* waveform, waveform_data_cb_t cb, void *arg);
 
 /// @brief Register a prepare for transmit callback.
 /// @details Registers a callback is called when the user has asserted PTT and the transmitter is preparing to

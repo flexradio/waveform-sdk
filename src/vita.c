@@ -15,6 +15,31 @@
 #include "waveform.h"
 #include "radio.h"
 #include "vita.h"
+#include "utils.h"
+
+struct data_cb_wq_desc {
+    struct waveform_cb_list *cb;
+    struct waveform_vita_packet *packet;
+    size_t packet_size;
+    struct waveform_t *wf;
+};
+
+static void vita_data_cb(void *arg)
+{
+    struct data_cb_wq_desc *desc = (struct data_cb_wq_desc *) arg;
+    struct waveform_vita_packet *packet;
+
+    //  XXX This is ugly.  We should probably be using some sort of pool of packet structures so that
+    //  XXX we don't have to reallocate the memory all the time.  Maybe this really doesn't make a
+    //  XXX difference, but memory copies suck.
+    packet = (struct waveform_vita_packet *) calloc(1, sizeof(struct waveform_vita_packet));
+    memcpy(packet, desc->packet, desc->packet_size);
+
+    (desc->cb->data_cb)(desc->wf, desc->packet, desc->packet_size, desc->cb->arg);
+
+    free(packet);
+    free(desc);
+}
 
 static void vita_read_cb(evutil_socket_t socket, short what, void *ctx)
 {
@@ -48,16 +73,39 @@ static void vita_read_cb(evutil_socket_t socket, short what, void *ctx)
         *word = ntohl(*word);
     }
 
+    struct waveform_t *cur_wf = container_of(vita, struct waveform_t, vita);
+
     if (!(packet.stream_id & 0x0001U)) {
-        //  Receive Packet Processing
         vita->rx_stream_id = packet.stream_id;
+        waveform_cb_for_each(cur_wf, rx_data_cbs, cur_cb) {
+            struct data_cb_wq_desc *desc = (struct data_cb_wq_desc *) calloc(1, sizeof(struct data_cb_wq_desc));
+            pthread_workitem_handle_t handle;
+            unsigned int gencountp;
+
+            desc->wf = cur_wf;
+            desc->packet = &packet;
+            desc->packet_size = bytes_received;
+            desc->cb = cur_cb;
+
+            pthread_workqueue_additem_np(vita->cb_wq, vita_data_cb, desc, &handle, &gencountp);
+        }
     } else {
         //  Transmit packet processing
         vita->tx_stream_id = packet.stream_id;
-        fprintf(stderr, "Queue samples for TX\n");
+        waveform_cb_for_each(cur_wf, tx_data_cbs, cur_cb) {
+            struct data_cb_wq_desc *desc = (struct data_cb_wq_desc *) calloc(1, sizeof(struct data_cb_wq_desc));
+            pthread_workitem_handle_t handle;
+            unsigned int gencountp;
+
+            desc->wf = cur_wf;
+            desc->packet = &packet;
+            desc->packet_size = bytes_received;
+            desc->cb = cur_cb;
+
+            pthread_workqueue_additem_np(vita->cb_wq, vita_data_cb, desc, &handle, &gencountp);
+        }
     }
 }
-
 
 static void* vita_evt_loop(void *arg)
 {

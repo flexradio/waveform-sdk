@@ -15,6 +15,11 @@ static void echo_command(struct waveform_t *waveform, unsigned int argc, char *a
     }
 }
 
+static void packet_rx(struct waveform_t *waveform, struct waveform_vita_packet *packet, size_t packet_size, void *arg)
+{
+    fputc('.', stderr);
+}
+
 static void state_test(struct waveform_t *waveform, enum waveform_state state, void *arg) {
     switch (state) {
         case ACTIVE:
@@ -49,6 +54,7 @@ int main(int argc, char **argv)
     struct waveform_t *test_waveform = waveform_create(radio, "JunkMode", "JUNK", "DIGU", "1.0.0");
     waveform_register_status_cb(test_waveform, "slice", echo_command, NULL);
     waveform_register_state_cb(test_waveform, state_test, NULL);
+    waveform_register_rx_data_cb(test_waveform, packet_rx, NULL);
     waveform_radio_start(radio);
 
     waveform_radio_wait(radio);

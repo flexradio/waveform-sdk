@@ -58,7 +58,8 @@ struct kwarg *parse_kwargs(char **argv, int argc, int start);
 sds find_kwarg(int argc, sds *argv, sds key);
 void kwargs_destroy(struct kwarg **args);
 
-
-
+#define container_of(ptr, type, member) ({                      \
+        const typeof( ((type *)0)->member ) *__mptr = (ptr);    \
+        (type *)( (char *)__mptr - offsetof(type,member) );})
 
 #endif /* UTILS_H_ */

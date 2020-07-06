@@ -157,3 +157,23 @@ int waveform_register_state_cb(struct waveform_t *waveform, waveform_state_cb_t 
         cur->next = new_cb;
     }
 }
+
+int waveform_register_rx_data_cb(struct waveform_t* waveform, waveform_data_cb_t cb, void *arg)\
+{
+    struct waveform_cb_list *new_cb = (struct waveform_cb_list *) calloc(1, sizeof(struct waveform_cb_list));
+    if (!new_cb) {
+        return -1;
+    }
+
+    new_cb->name = NULL;
+
+    new_cb->data_cb = cb;
+    new_cb->arg = arg;
+
+    if(!waveform->rx_data_cbs) {
+        waveform->rx_data_cbs = new_cb;
+    } else {
+        struct waveform_cb_list *cur;
+        for (cur = waveform->rx_data_cbs; cur->next != NULL; cur = cur->next);
+        cur->next = new_cb;
+    }}
