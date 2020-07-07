@@ -54,6 +54,11 @@ enum waveform_state {
     UNKEY_REQUESTED
 };
 
+enum waveform_packet_type {
+    SPEAKER_DATA,
+    TRANSMITTER_DATA
+};
+
 /// @brief Called when the waveform state changes
 /// @details When the waveform changes state this callback is called to inform the waveform plugin of that fact.
 /// @param waveform The waveform activating or deactivating.
@@ -296,4 +301,13 @@ struct radio_t* waveform_radio_create(struct sockaddr_in *addr);
 void waveform_radio_destroy(struct radio_t *radio);
 int waveform_radio_wait(struct radio_t *radio);
 int waveform_radio_start(struct radio_t *radio);
+
+void waveform_send_data_packet(struct waveform_t *waveform, float *samples, size_t num_samples, enum waveform_packet_type type);
+
+uint16_t get_packet_len(struct waveform_vita_packet *packet);
+float *get_packet_data(struct waveform_vita_packet *packet);
+uint32_t get_packet_ts_int(struct waveform_vita_packet *packet);
+uint64_t get_packet_ts_frac(struct waveform_vita_packet *packet);
+
+
 #endif //WAVEFORM_SDK_WAVEFORM_H

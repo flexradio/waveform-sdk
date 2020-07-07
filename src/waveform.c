@@ -176,4 +176,10 @@ int waveform_register_rx_data_cb(struct waveform_t* waveform, waveform_data_cb_t
         struct waveform_cb_list *cur;
         for (cur = waveform->rx_data_cbs; cur->next != NULL; cur = cur->next);
         cur->next = new_cb;
-    }}
+    }
+}
+
+inline void waveform_send_data_packet(struct waveform_t *waveform, float *samples, size_t num_samples, enum waveform_packet_type type)
+{
+    vita_send_data_packet(&waveform->vita, samples, num_samples, type);
+}
