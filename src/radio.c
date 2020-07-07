@@ -56,7 +56,7 @@ static void mode_change(struct radio_t *radio, sds mode, char slice)
                 (cur_cb->state_cb)(cur_wf, INACTIVE, cur_cb->arg);
             }
             cur_wf->active_slice = -1;
-            // XXX Stop VITA-49
+            vita_destroy(cur_wf);
         }
 
         // User has selected this waveform's mode and we're not busy.
