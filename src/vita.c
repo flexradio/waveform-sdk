@@ -242,6 +242,7 @@ static void vita_send_packet_cb(evutil_socket_t socket, short what, void *arg)
 
     ssize_t bytes_sent;
     size_t packet_len = VITA_PACKET_HEADER_SIZE + (packet->length * sizeof(float));
+    packet->length += (VITA_PACKET_HEADER_SIZE / 4);
 
     //  XXX Lots of magic numbers here!
     packet->timestamp_type = 0x50U | (packet->timestamp_type & 0x0FU);
@@ -335,7 +336,7 @@ void vita_send_data_packet(struct vita *vita, float *samples, size_t num_samples
 
 inline uint16_t get_packet_len(struct waveform_vita_packet *packet)
 {
-    return packet->length;
+    return packet->length - (VITA_PACKET_HEADER_SIZE / sizeof(uint32_t));
 }
 
 inline float *get_packet_data(struct waveform_vita_packet *packet)
