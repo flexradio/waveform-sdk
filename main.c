@@ -7,12 +7,21 @@
 #include <stdlib.h>
 #include <math.h>
 #include <pthread.h>
+#include <string.h>
 
 #include <waveform_api.h>
 
-double rx_phase = 0.0;
+int rx_phase = 0;
 double phase_advance = 2.0 * M_PI * 1000.0 / 24000.0;
-pthread_mutex_t phase_lock;
+pthread_mutex_t rx_phase_lock, tx_phase_lock;
+
+static float sin_table[] = {
+    0.0F,                 0.25881904510252074F, 0.49999999999999994F,     0.7071067811865475F,   0.8660254037844386F,
+    0.9659258262890682F,  1.0F,                 0.9659258262890683F,      0.8660254037844388F,   0.7071067811865476F,
+    0.5000000000000003F,  0.258819045102521F,   1.2246467991473532e-16F, -0.25881904510252035F, -0.4999999999999998F,
+   -0.7071067811865471F, -0.8660254037844384F, -0.9659258262890681F,     -1.0F,                 -0.9659258262890684F,
+   -0.866025403784439F,  -0.7071067811865477F, -0.5000000000000004F,     -0.2588190451025215F
+};
 
 static void echo_command(struct waveform_t *waveform, unsigned int argc, char *argv[], void *arg)
 {
@@ -27,18 +36,19 @@ static void packet_rx(struct waveform_t *waveform, struct waveform_vita_packet *
 {
     float *null_samples = (float *) calloc(get_packet_len(packet), sizeof(float));
 
-    rx_phase = rx_phase > 2.0 * M_PI ? rx_phase - (2.0 * M_PI) : rx_phase;
-    rx_phase = rx_phase < -2.0 * M_PI ? rx_phase + (2.0 * M_PI) : rx_phase;
+    // float *null_samples = (float *) calloc(get_packet_len(packet), sizeof(float));
+    float null_samples[get_packet_len(packet)];
+    memset(null_samples, 0, sizeof(null_samples));
 
-    pthread_mutex_lock(&phase_lock);
+    pthread_mutex_lock(&rx_phase_lock);
     for (int i = 0; i < get_packet_len(packet); i += 2) {
-        null_samples[i] = null_samples[i + 1] = (float) (sin(rx_phase) * 0.5);
-        rx_phase += phase_advance;
+        null_samples[i] = null_samples[i + 1] = sin_table[rx_phase] * 0.5F;
+        rx_phase = (rx_phase + 1) % 24;
     }
-    pthread_mutex_unlock(&phase_lock);
+    pthread_mutex_unlock(&rx_phase_lock);
 
     waveform_send_data_packet(waveform, null_samples, get_packet_len(packet), SPEAKER_DATA);
-    free(null_samples);
+    // free(null_samples);
 }
 
 static void state_test(struct waveform_t *waveform, enum waveform_state state, void *arg) {
@@ -71,7 +81,8 @@ int main(int argc, char **argv)
 
     inet_aton("10.0.3.34", &addr.sin_addr);
 
-    pthread_mutex_init(&phase_lock, NULL);
+    pthread_mutex_init(&rx_phase_lock, NULL);
+    pthread_mutex_init(&tx_phase_lock, NULL);
 
     struct radio_t *radio = waveform_radio_create(&addr);
     struct waveform_t *test_waveform = waveform_create(radio, "JunkMode", "JUNK", "DIGU", "1.0.0");
