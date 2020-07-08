@@ -155,7 +155,7 @@ int waveform_register_state_cb(struct waveform_t *waveform, waveform_state_cb_t 
 /// @param cb Pointer to the callback function
 /// @param arg A user-defined argument to be passed to the callback on execution.  Can be NULL.
 /// @return 0 upon success, -1 on failure
-int waveform_register_tx_data_cb(struct waveform_t* waveform, waveform_data_cb_t *cb, void *arg);
+int waveform_register_tx_data_cb(struct waveform_t* waveform, waveform_data_cb_t cb, void *arg);
 
 /// @brief Register a receive data callback for a waveform.
 /// @details Registers a callback that is called when there is data from the incoming RF data from the receiver.
