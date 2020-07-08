@@ -12,8 +12,9 @@
 #include <waveform_api.h>
 
 int rx_phase = 0;
-double phase_advance = 2.0 * M_PI * 1000.0 / 24000.0;
+int tx_phase = 0;
 pthread_mutex_t rx_phase_lock, tx_phase_lock;
+int tx;
 
 static float sin_table[] = {
     0.0F,                 0.25881904510252074F, 0.49999999999999994F,     0.7071067811865475F,   0.8660254037844386F,
@@ -34,9 +35,10 @@ static void echo_command(struct waveform_t *waveform, unsigned int argc, char *a
 
 static void packet_rx(struct waveform_t *waveform, struct waveform_vita_packet *packet, size_t packet_size, void *arg)
 {
-    float *null_samples = (float *) calloc(get_packet_len(packet), sizeof(float));
+    if (tx == 1) {
+        return;
+    }
 
-    // float *null_samples = (float *) calloc(get_packet_len(packet), sizeof(float));
     float null_samples[get_packet_len(packet)];
     memset(null_samples, 0, sizeof(null_samples));
 
@@ -48,7 +50,25 @@ static void packet_rx(struct waveform_t *waveform, struct waveform_vita_packet *
     pthread_mutex_unlock(&rx_phase_lock);
 
     waveform_send_data_packet(waveform, null_samples, get_packet_len(packet), SPEAKER_DATA);
-    // free(null_samples);
+}
+
+static void packet_tx(struct waveform_t *waveform, struct waveform_vita_packet *packet, size_t packet_size, void *arg)
+{
+    if (tx != 1) {
+        return;
+    }
+
+    float xmit_samples[get_packet_len(packet)];
+    memset(xmit_samples, 0, sizeof(xmit_samples));
+
+    pthread_mutex_lock(&tx_phase_lock);
+    for (int i = 0; i < get_packet_len(packet); i += 2) {
+        xmit_samples[i] = xmit_samples[i + 1] = sin_table[tx_phase] * 0.5F;
+        tx_phase = (tx_phase + 1) % 24;
+    }
+    pthread_mutex_unlock(&tx_phase_lock);
+
+    waveform_send_data_packet(waveform, xmit_samples, get_packet_len(packet), TRANSMITTER_DATA);
 }
 
 static void state_test(struct waveform_t *waveform, enum waveform_state state, void *arg) {
@@ -61,9 +81,11 @@ static void state_test(struct waveform_t *waveform, enum waveform_state state, v
             break;
         case PTT_REQUESTED:
             fprintf(stderr, "ptt requested\n");
+            tx = 1;
             break;
         case UNKEY_REQUESTED:
             fprintf(stderr, "unkey requested\n");
+            tx = 0;
             break;
         default:
             fprintf(stderr, "unknown state received");
@@ -89,6 +111,7 @@ int main(int argc, char **argv)
     waveform_register_status_cb(test_waveform, "slice", echo_command, NULL);
     waveform_register_state_cb(test_waveform, state_test, NULL);
     waveform_register_rx_data_cb(test_waveform, packet_rx, NULL);
+    waveform_register_tx_data_cb(test_waveform, packet_tx, NULL);
     waveform_radio_start(radio);
 
     waveform_radio_wait(radio);
