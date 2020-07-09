@@ -309,5 +309,7 @@ float *get_packet_data(struct waveform_vita_packet *packet);
 uint32_t get_packet_ts_int(struct waveform_vita_packet *packet);
 uint64_t get_packet_ts_frac(struct waveform_vita_packet *packet);
 
+void waveform_set_context(struct waveform_t *wf, void *ctx);
+void *waveform_get_context(struct waveform_t *wf);
 
 #endif //WAVEFORM_SDK_WAVEFORM_H

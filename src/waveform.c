@@ -204,3 +204,13 @@ inline void waveform_send_data_packet(struct waveform_t *waveform, float *sample
 {
     vita_send_data_packet(&waveform->vita, samples, num_samples, type);
 }
+
+void waveform_set_context(struct waveform_t *wf, void *ctx)
+{
+    wf->ctx = ctx;
+}
+
+void *waveform_get_context(struct waveform_t *wf)
+{
+    return wf->ctx;
+}
