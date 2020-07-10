@@ -25,16 +25,25 @@ static float sin_table[] = {
    -0.866025403784439F,  -0.7071067811865477F, -0.5000000000000004F,     -0.2588190451025215F
 };
 
-static void echo_command(struct waveform_t *waveform, unsigned int argc, char *argv[], void *arg)
+static int echo_command(struct waveform_t *waveform, unsigned int argc, char *argv[], void *arg __attribute__ ((unused)))
 {
 //    fprintf(stderr, "Got a status for %s\n", argv[0]);
 //    fprintf(stderr, "Number of args is %u\n", argc);
 //    for(int i = 0; i < argc; ++i) {
 //        fprintf(stderr, "ARG #%u: %s\n", i, argv[i]);
 //    }
+    return 0;
 }
 
-static void packet_rx(struct waveform_t *waveform, struct waveform_vita_packet *packet, size_t packet_size, void *arg)
+static int test_command(struct waveform_t *waveform, unsigned int argc, char *argv[], void *arg __attribute__ ((unused)))
+{
+    for (int i = 0; i < argc; ++i)
+        fprintf(stderr, "ARG #%u: %s\n", i, argv[i]);
+
+    return 0;
+}
+
+static void packet_rx(struct waveform_t *waveform, struct waveform_vita_packet *packet, size_t packet_size, void *arg __attribute__ ((unused)))
 {
     struct junk_context *ctx = waveform_get_context(waveform);
 
@@ -55,7 +64,7 @@ static void packet_rx(struct waveform_t *waveform, struct waveform_vita_packet *
     waveform_send_data_packet(waveform, null_samples, get_packet_len(packet), SPEAKER_DATA);
 }
 
-static void packet_tx(struct waveform_t *waveform, struct waveform_vita_packet *packet, size_t packet_size, void *arg)
+static void packet_tx(struct waveform_t *waveform, struct waveform_vita_packet *packet, size_t packet_size, void *arg __attribute__ ((unused)))
 {
     struct junk_context *ctx = waveform_get_context(waveform);
 
@@ -121,6 +130,7 @@ int main(int argc, char **argv)
     waveform_register_state_cb(test_waveform, state_test, NULL);
     waveform_register_rx_data_cb(test_waveform, packet_rx, NULL);
     waveform_register_tx_data_cb(test_waveform, packet_tx, NULL);
+    waveform_register_command_cb(test_waveform, "set", test_command, NULL);
     waveform_set_context(test_waveform, &ctx);
     waveform_radio_start(radio);
 

@@ -200,6 +200,27 @@ int waveform_register_tx_data_cb(struct waveform_t* waveform, waveform_data_cb_t
     }
 }
 
+int waveform_register_command_cb(struct waveform_t* waveform, char *command_name, waveform_cmd_cb_t cb, void *arg)
+{
+    struct waveform_cb_list *new_cb = (struct waveform_cb_list *) calloc(1, sizeof(struct waveform_cb_list));
+    if (!new_cb) {
+        return -1;
+    }
+
+    new_cb->name = sdsnew(command_name);
+
+    new_cb->cmd_cb = cb;
+    new_cb->arg = arg;
+
+    if(!waveform->cmd_cbs) {
+        waveform->cmd_cbs = new_cb;
+    } else {
+        struct waveform_cb_list *cur;
+        for (cur = waveform->cmd_cbs; cur->next != NULL; cur = cur->next);
+        cur->next = new_cb;
+    }
+}
+
 inline void waveform_send_data_packet(struct waveform_t *waveform, float *samples, size_t num_samples, enum waveform_packet_type type)
 {
     vita_send_data_packet(&waveform->vita, samples, num_samples, type);

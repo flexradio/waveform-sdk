@@ -72,7 +72,7 @@ typedef void (*waveform_state_cb_t)(struct waveform_t* waveform, enum waveform_s
 /// @param argc The number of arguments to the command
 /// @param argv The arguments to the command.
 /// @param arg A user-defined argument passed to waveform_register_command()
-typedef void (*waveform_cmd_cb_t)(struct waveform_t *waveform, unsigned int argc, char *argv[], void *arg);
+typedef int (*waveform_cmd_cb_t)(struct waveform_t *waveform, unsigned int argc, char *argv[], void *arg);
 
 /// @brief Called when data is ready for the waveform
 /// @details When new data arrives for the waveform, this callback is called.  This callback will execute on the
@@ -207,7 +207,7 @@ int waveform_register_status_cb(struct waveform_t* waveform, char* status_name, 
 /// @param cb Pointer to the callback function
 /// @param arg A user-defined argument to be passed to the callback on execution.  Can be NULL.
 /// @return 0 upon success, -1 on failure
-int waveform_register_command_cb(struct waveform_t* waveform, char *command_name, waveform_cmd_cb_t *cb, void *arg);
+int waveform_register_command_cb(struct waveform_t* waveform, char *command_name, waveform_cmd_cb_t cb, void *arg);
 
 /// @brief Runs the event loop
 /// @details This function should be called when you have registered all of your callbacks for the waveform and are
