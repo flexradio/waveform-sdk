@@ -33,7 +33,8 @@ target_link_libraries(waveform PUBLIC
         event_core_static
         event_extra_static
         event_pthreads_static
-        pthread pthread_workqueue
+        pthread_workqueue
+        pthread
 )
 target_include_directories(waveform PUBLIC
         ${CMAKE_SOURCE_DIR}/include
