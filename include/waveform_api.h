@@ -60,6 +60,11 @@ enum waveform_state {
     UNKEY_REQUESTED
 };
 
+enum waveform_packet_type {
+    SPEAKER_DATA,
+    TRANSMITTER_DATA
+};
+
 /// @brief Called when the waveform state changes
 /// @details When the waveform changes state this callback is called to inform the waveform plugin of that fact.
 /// @param waveform The waveform activating or deactivating.
@@ -73,7 +78,7 @@ typedef void (*waveform_state_cb_t)(struct waveform_t* waveform, enum waveform_s
 /// @param argc The number of arguments to the command
 /// @param argv The arguments to the command.
 /// @param arg A user-defined argument passed to waveform_register_command()
-typedef void (*waveform_cmd_cb_t)(struct waveform_t *waveform, unsigned int argc, char *argv[], void *arg);
+typedef int (*waveform_cmd_cb_t)(struct waveform_t *waveform, unsigned int argc, char *argv[], void *arg);
 
 /// @brief Called when data is ready for the waveform
 /// @details When new data arrives for the waveform, this callback is called.  This callback will execute on the
@@ -86,7 +91,7 @@ typedef void (*waveform_cmd_cb_t)(struct waveform_t *waveform, unsigned int argc
 /// @param data A pointer to the received data
 /// @param data_size the size in bytes of the data in *data
 /// @param arg A user-defined argument passed to the data callback creation functions.
-typedef void (*waveform_data_cb_t)(struct waveform_t* waveform, void* data, size_t data_size, void* arg);
+typedef void (*waveform_data_cb_t)(struct waveform_t* waveform, struct waveform_vita_packet *packet, size_t packet_size, void* arg);
 
 /// @brief Called when a response to a waveform command is received
 /// @details This is called when a response is received to a command you issued to your waveform.
@@ -156,7 +161,7 @@ int waveform_register_state_cb(struct waveform_t *waveform, waveform_state_cb_t 
 /// @param cb Pointer to the callback function
 /// @param arg A user-defined argument to be passed to the callback on execution.  Can be NULL.
 /// @return 0 upon success, -1 on failure
-int waveform_register_tx_data_cb(struct waveform_t* waveform, waveform_data_cb_t *cb, void *arg);
+int waveform_register_tx_data_cb(struct waveform_t* waveform, waveform_data_cb_t cb, void *arg);
 
 /// @brief Register a receive data callback for a waveform.
 /// @details Registers a callback that is called when there is data from the incoming RF data from the receiver.
@@ -166,7 +171,7 @@ int waveform_register_tx_data_cb(struct waveform_t* waveform, waveform_data_cb_t
 /// @param cb Pointer to the callback function
 /// @param arg A user-defined argument to be passed to the callback on execution.  Can be NULL.
 /// @return 0 upon success, -1 on failure
-int waveform_register_rx_data_cb(struct waveform_t* waveform, waveform_data_cb_t *cb, void *arg);
+int waveform_register_rx_data_cb(struct waveform_t* waveform, waveform_data_cb_t cb, void *arg);
 
 /// @brief Register a prepare for transmit callback.
 /// @details Registers a callback is called when the user has asserted PTT and the transmitter is preparing to
@@ -208,7 +213,7 @@ int waveform_register_status_cb(struct waveform_t* waveform, char* status_name, 
 /// @param cb Pointer to the callback function
 /// @param arg A user-defined argument to be passed to the callback on execution.  Can be NULL.
 /// @return 0 upon success, -1 on failure
-int waveform_register_command_cb(struct waveform_t* waveform, char *command_name, waveform_cmd_cb_t *cb, void *arg);
+int waveform_register_command_cb(struct waveform_t* waveform, char *command_name, waveform_cmd_cb_t cb, void *arg);
 
 /// @brief Runs the event loop
 /// @details This function should be called when you have registered all of your callbacks for the waveform and are
@@ -302,4 +307,15 @@ struct radio_t* waveform_radio_create(struct sockaddr_in *addr);
 void waveform_radio_destroy(struct radio_t *radio);
 int waveform_radio_wait(struct radio_t *radio);
 int waveform_radio_start(struct radio_t *radio);
+
+void waveform_send_data_packet(struct waveform_t *waveform, float *samples, size_t num_samples, enum waveform_packet_type type);
+
+uint16_t get_packet_len(struct waveform_vita_packet *packet);
+float *get_packet_data(struct waveform_vita_packet *packet);
+uint32_t get_packet_ts_int(struct waveform_vita_packet *packet);
+uint64_t get_packet_ts_frac(struct waveform_vita_packet *packet);
+
+void waveform_set_context(struct waveform_t *wf, void *ctx);
+void *waveform_get_context(struct waveform_t *wf);
+
 #endif //WAVEFORM_SDK_WAVEFORM_H
