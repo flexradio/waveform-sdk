@@ -40,6 +40,7 @@ static void interlock_state_change(struct radio_t *radio, sds state)
 
     radio_waveforms_for_each(radio, cur_wf) {
         for (struct waveform_cb_list *cur_cb = cur_wf->state_cbs; cur_cb != NULL; cur_cb = cur_cb->next) {
+            // XXX Spawn to worker thread.
             (cur_cb->state_cb)(cur_wf, cb_state, cur_cb->arg);
         }
     }
@@ -49,6 +50,7 @@ static void mode_change(struct radio_t *radio, sds mode, char slice)
 {
     fprintf(stderr, "Got a request for mode %s on slice %d\n", mode, slice);
 
+    //  XXX Run these in the work queue.
     radio_waveforms_for_each(radio, cur_wf) {
         //  User has deselected this waveform's mode.
         if (cur_wf->active_slice == slice && strcmp(cur_wf->short_name, mode) != 0) {
@@ -66,7 +68,6 @@ static void mode_change(struct radio_t *radio, sds mode, char slice)
             }
             cur_wf->active_slice = slice;
             vita_init(cur_wf);
-            // XXX Start VITA-49
         }
     }
 }
@@ -130,7 +131,7 @@ static void process_status_message(struct radio_t *radio, sds message)
 
     radio_waveforms_for_each(radio, cur_wf) {
         waveform_cb_for_each(cur_wf, status_cbs, cur_cb) {
-            struct status_cb_wq_desc *desc = (struct status_cb_wq_desc *) calloc(1, sizeof(struct status_cb_wq_desc));
+            struct status_cb_wq_desc *desc = calloc(1, sizeof(*desc));
             pthread_workitem_handle_t handle;
             unsigned int gencountp;
 
@@ -207,7 +208,7 @@ static void process_waveform_command(struct radio_t *radio, int sequence, sds me
                 continue;
             }
 
-            struct cmd_cb_wq_desc *desc = (struct cmd_cb_wq_desc *) calloc(1, sizeof(struct cmd_cb_wq_desc));
+            struct cmd_cb_wq_desc *desc = calloc(1, sizeof(*desc));
             pthread_workitem_handle_t handle;
             unsigned int gencountp;
 
@@ -474,7 +475,7 @@ static void* radio_evt_loop(void *arg)
 }
 
 struct radio_t *waveform_radio_create(struct sockaddr_in *addr) {
-    struct radio_t *radio = (struct radio_t *) calloc(1, sizeof(struct radio_t));
+    struct radio_t *radio = calloc(1, sizeof(*radio));
     if (!radio) {
         return NULL;
     }
