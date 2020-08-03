@@ -39,17 +39,39 @@ static void add_sequence_to_response_queue(struct waveform_t *waveform, waveform
     LL_APPEND(waveform->radio->rq_head, new_entry);
 }
 
+struct resp_cb_wq_desc {
+    unsigned int code;
+    sds message;
+    struct response_queue_entry *rq_entry;
+};
+
+static void rq_call_cb(void *arg)
+{
+    struct resp_cb_wq_desc *desc = (struct resp_cb_wq_desc *) arg;
+
+    desc->rq_entry->cb(desc->rq_entry->wf, desc->code, desc->message, desc->rq_entry->ctx);
+
+    free(desc->rq_entry);
+    free(desc);
+}
+
 static void complete_response_entry(struct radio_t *radio, unsigned int sequence, unsigned int code, sds message)
 {
     struct response_queue_entry *current_entry;
+    pthread_workitem_handle_t handle;
+    unsigned int gencountp;
+    struct resp_cb_wq_desc *desc = calloc(1, sizeof(*desc));
 
     LL_SEARCH_SCALAR(radio->rq_head, current_entry, sequence, sequence);
     if (!current_entry)
         return;
 
-    current_entry->cb(current_entry->wf, code, message, current_entry->ctx);
+    desc->code = code;
+    desc->rq_entry = current_entry;
+    desc->message = sdsdup(message);
+    pthread_workqueue_additem_np(radio->cb_wq, rq_call_cb, desc, &handle, &gencountp);
+
     LL_DELETE(radio->rq_head, current_entry);
-    free(current_entry);
 }
 
 static void destroy_response_queue(struct waveform_t *waveform)
@@ -265,6 +287,7 @@ static void radio_process_line(struct radio_t *radio, sds line)
     int ret;
     unsigned long code, handle, sequence;
     unsigned int api_version[4];
+    int count;
 
     assert(radio != NULL);
     assert(line != NULL);
@@ -272,6 +295,8 @@ static void radio_process_line(struct radio_t *radio, sds line)
     fprintf(stderr, "Rx: %s\n", line);
     char command = *line;
     sdsrange(line, 1, -1);
+    sds *tokens = sdssplitlen(line, sdslen(line), "|", 1, &count);
+
     switch(command) {
         case 'V':
             // TODO: Fix me so that I read into the api struct.
@@ -285,6 +310,7 @@ static void radio_process_line(struct radio_t *radio, sds line)
 
             fprintf(stdout, "Radio API Version: %d.%d(%d.%d)\n", api_version[0], api_version[1], api_version[2], api_version[3]);
             break;
+
         case 'H':
             errno = 0;
             radio->handle = strtoul(line, &endptr, 16);
@@ -300,6 +326,7 @@ static void radio_process_line(struct radio_t *radio, sds line)
             }
 
             break;
+
         case 'S':
             errno = 0;
             handle = strtoul(line, &endptr, 16);
@@ -316,37 +343,47 @@ static void radio_process_line(struct radio_t *radio, sds line)
             sdsrange(line, endptr - line + 1, -1);
             process_status_message(radio, line);
             break;
+
         case 'M':
             break;
+
         case 'R':
             errno = 0;
-            sequence = strtoul(line, &endptr, 10);
+            if (count != 3) {
+                fprintf(stderr, "Invalid response line: %s\n", line);
+                break;
+            }
+
+
+
+            sequence = strtoul(tokens[0], &endptr, 10);
             if ((errno == ERANGE && sequence == ULONG_MAX) ||
                 (errno != 0 && sequence == 0)) {
                 fprintf(stderr, "Error finding response sequence: %s\n", strerror(errno));
                 break;
             }
 
-            if (endptr == line) {
+            if (endptr == tokens[0]) {
                 fprintf(stderr, "Cannot find response sequence in: %s\n", line);
                 break;
             }
 
             errno = 0;
-            code = strtoul(endptr + 1, &response_message, 16);
+            code = strtoul(tokens[1], &endptr, 16);
             if ((errno == ERANGE && code == ULONG_MAX) ||
                 (errno != 0 && code == 0)) {
                 fprintf(stderr, "Error finding response code: %s\n", strerror(errno));
                 break;
             }
 
-            if (response_message == endptr + 1) {
+            if (endptr == tokens[1]) {
                 fprintf(stderr, "Cannot find response code in: %s\n", line);
                 break;
             }
 
-            complete_response_entry(radio, sequence, code, response_message + 1);
+            complete_response_entry(radio, sequence, code, tokens[2]);
             break;
+
         case 'C':
             errno = 0;
             sequence = strtoul(line, &endptr, 10);
@@ -364,10 +401,13 @@ static void radio_process_line(struct radio_t *radio, sds line)
             sdsrange(line, endptr - line + 1, -1);
             process_waveform_command(radio, sequence, line);
             break;
+
         default:
             fprintf(stderr, "Unknown command: %s\n", line);
             break;
     }
+
+    sdsfreesplitres(tokens, count);
 }
 
 long waveform_radio_send_api_command_cb_va(struct waveform_t *wf, waveform_response_cb_t cb, void *arg, char *command, va_list ap)
