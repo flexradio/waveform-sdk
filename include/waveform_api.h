@@ -90,10 +90,11 @@ typedef void (*waveform_data_cb_t)(struct waveform_t *waveform, struct waveform_
 /// @details This is called when a response is received to a command you issued to your waveform.
 /// @param waveform The waveform the command was executed on
 /// @param code The return code of the command.
+/// @param arg A user-defined argument passed to the data callback creation functions.
 /// @param message The text message from the command result.  Upon completion of this callback the storage for this
 ///                string will be freed.  If you need it past the context of this callback function you should copy
 ///                it to storage that you allocate.
-typedef void (*waveform_response_cb_t)(struct waveform_t *waveform, int code, char *message);
+typedef void (*waveform_response_cb_t)(struct waveform_t *waveform, unsigned int code, char *message, void *arg);
 
 /// @brief Create a waveform.
 /// @details Creates a waveform for processing.  This will register the waveform with the SDK and set it up to be

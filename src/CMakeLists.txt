@@ -26,7 +26,16 @@ FetchContent_GetProperties(sds)
 if(NOT sds_POPULATED)
     FetchContent_Populate(sds)
 endif()
-set(sds_SOURCES ${sds_SOURCE_DIR}/sds.c ${sds_SOURCE_DIR}/sds.h ${sds_SOURCE_DIR}/sdsalloc.h )
+set(sds_SOURCES ${sds_SOURCE_DIR}/sds.c ${sds_SOURCE_DIR}/sds.h ${sds_SOURCE_DIR}/sdsalloc.h)
+
+FetchContent_Declare(utlist
+        GIT_REPOSITORY https://github.com/troydhanson/uthash.git
+        GIT_TAG v2.1.0
+)
+FetchContent_GetProperties(utlist)
+if(NOT utlist_POPULATED)
+    FetchContent_Populate(utlist)
+endif()
 
 add_library(waveform STATIC ${WAVEFORM_SRCS} ${WAVEFORM_HDRS} ${sds_SOURCES})
 target_link_libraries(waveform PUBLIC
@@ -36,10 +45,13 @@ target_link_libraries(waveform PUBLIC
         pthread_workqueue
         pthread
 )
-target_include_directories(waveform PUBLIC
+target_include_directories(waveform
+    PUBLIC
         ${CMAKE_SOURCE_DIR}/include
         ${event_SOURCE_DIR}/include
         ${event_BINARY_DIR}/include
         ${pthread_wq_SOURCE_DIR}/include
         ${sds_SOURCE_DIR}
+    PRIVATE
+        ${utlist_SOURCE_DIR}/src
 )

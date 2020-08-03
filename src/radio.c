@@ -21,10 +21,45 @@
 #include <pthread_workqueue.h>
 
 #include <sds.h>
+#include <utlist.h>
 
 #include "utils.h"
 #include "waveform.h"
 #include "radio.h"
+
+static void add_sequence_to_response_queue(struct waveform_t *waveform, waveform_response_cb_t cb, void *ctx)
+{
+    struct response_queue_entry *new_entry;
+
+    new_entry = (struct response_queue_entry *) malloc(sizeof(*new_entry));
+    new_entry->cb = cb;
+    new_entry->sequence = waveform->radio->sequence;
+    new_entry->ctx = ctx;
+
+    LL_APPEND(waveform->radio->rq_head, new_entry);
+}
+
+static void complete_response_entry(struct radio_t *radio, unsigned int sequence, unsigned int code, sds message)
+{
+    struct response_queue_entry *current_entry;
+
+    LL_SEARCH_SCALAR(radio->rq_head, current_entry, sequence, sequence);
+    if (!current_entry)
+        return;
+
+    current_entry->cb(current_entry->wf, code, message, current_entry->ctx);
+    LL_DELETE(radio->rq_head, current_entry);
+    free(current_entry);
+}
+
+static void destroy_response_queue(struct waveform_t *waveform)
+{
+    struct response_queue_entry *current_entry, *tmp_entry;
+
+    LL_FOREACH_SAFE(waveform->radio->rq_head, current_entry, tmp_entry) {
+        LL_DELETE(waveform->radio->rq_head, current_entry);
+    }
+}
 
 static void interlock_state_change(struct radio_t *radio, sds state)
 {
@@ -310,8 +345,7 @@ static void radio_process_line(struct radio_t *radio, sds line)
                 break;
             }
 
-            //  Fill with creamy center
-//            complete_response_entry(api, sequence, code, response_message + 1);
+            complete_response_entry(radio, sequence, code, response_message + 1);
             break;
         case 'C':
             errno = 0;
@@ -336,15 +370,15 @@ static void radio_process_line(struct radio_t *radio, sds line)
     }
 }
 
-long waveform_radio_send_api_command_cb_va(struct radio_t *radio, waveform_response_cb_t cb, void *arg, char *command, va_list ap)
+long waveform_radio_send_api_command_cb_va(struct waveform_t *wf, waveform_response_cb_t cb, void *arg, char *command, va_list ap)
 {
     int cmdlen;
     char *message_format;
     va_list aq;
 
-    struct evbuffer *output = bufferevent_get_output(radio->bev);
+    struct evbuffer *output = bufferevent_get_output(wf->radio->bev);
 
-    cmdlen = asprintf(&message_format, "C%ld|%s\n", radio->sequence, command);
+    cmdlen = asprintf(&message_format, "C%ld|%s\n", wf->radio->sequence, command);
     if (cmdlen < 0) {
         return -1;
     }
@@ -359,19 +393,19 @@ long waveform_radio_send_api_command_cb_va(struct radio_t *radio, waveform_respo
     free(message_format);
 
     if (cb) {
-//        add_sequence_to_response_queue(api, cb, ctx);
+        add_sequence_to_response_queue(wf, cb, arg);
     }
 
-    return ++radio->sequence;
+    return ++wf->radio->sequence;
 }
 
-static inline long waveform_radio_send_api_command_cb(struct radio_t *radio, waveform_response_cb_t cb, void *arg, char *command, ...)
+static inline long waveform_radio_send_api_command_cb(struct waveform_t *wf, waveform_response_cb_t cb, void *arg, char *command, ...)
 {
     va_list ap;
     long ret;
 
     va_start(ap, command);
-    ret = waveform_radio_send_api_command_cb_va(radio, cb, arg, command, ap);
+    ret = waveform_radio_send_api_command_cb_va(wf, cb, arg, command, ap);
     va_end(ap);
 
     return ret;
@@ -379,22 +413,27 @@ static inline long waveform_radio_send_api_command_cb(struct radio_t *radio, wav
 
 static void radio_init(struct radio_t *radio)
 {
-    waveform_radio_send_api_command_cb(radio, NULL, NULL, "sub slice all");
+    int sub = 0;
 
     radio_waveforms_for_each(radio, cur_wf) {
-        waveform_radio_send_api_command_cb(radio, NULL, NULL,
+        if (sub == 0) {
+            waveform_radio_send_api_command_cb(cur_wf, NULL, NULL, "sub slice all");
+            sub = 1;
+        }
+
+        waveform_radio_send_api_command_cb(cur_wf, NULL, NULL,
                 "waveform create name=%s mode=%s underlying_mode=%s version=%s",
                 cur_wf->name, cur_wf->short_name, cur_wf->underlying_mode, cur_wf->version);
-        waveform_radio_send_api_command_cb(radio, NULL, NULL,
+        waveform_radio_send_api_command_cb(cur_wf, NULL, NULL,
                 "waveform set %s tx=1", cur_wf->name);
-        waveform_radio_send_api_command_cb(radio, NULL, NULL,
+        waveform_radio_send_api_command_cb(cur_wf, NULL, NULL,
                 "waveform set %s rx_filter depth=%d", cur_wf->name, cur_wf->rx_depth);
-        waveform_radio_send_api_command_cb(radio, NULL, NULL,
+        waveform_radio_send_api_command_cb(cur_wf, NULL, NULL,
                 "waveform set %s tx_filter depth=%d", cur_wf->name, cur_wf->tx_depth);
     }
 }
 
-static void radio_event_cb(struct bufferevent *bev, short what, void *ctx)
+static void radio_event_cb(struct bufferevent *bev __attribute__ ((unused)), short what, void *ctx)
 {
     struct radio_t* radio = (struct radio_t *) ctx;
     switch (what) {

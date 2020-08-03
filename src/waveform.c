@@ -34,7 +34,7 @@
 
 struct waveform_t *wf_list;
 
-struct waveform_t* waveform_create(struct radio_t *radio, char* name, char* short_name, char* underlying_mode, char *version)
+struct waveform_t *waveform_create(struct radio_t *radio, char *name, char *short_name, char *underlying_mode, char *version)
 {
     struct waveform_t *wave = calloc(1, sizeof(*wave));
     if (!wave) {
@@ -131,7 +131,7 @@ inline long waveform_send_api_command_cb(struct waveform_t* waveform, waveform_r
     long ret;
 
     va_start(ap, command);
-    ret = waveform_radio_send_api_command_cb_va(waveform->radio, cb, arg, command, ap);
+    ret = waveform_radio_send_api_command_cb_va(waveform, cb, arg, command, ap);
     va_end(ap);
 
     return ret;
