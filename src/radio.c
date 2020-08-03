@@ -329,19 +329,23 @@ static void radio_process_line(struct radio_t *radio, sds line)
 
         case 'S':
             errno = 0;
-            handle = strtoul(line, &endptr, 16);
+            if (count != 2) {
+                fprintf(stderr, "Invalid status line: %s", line);
+                break;
+            }
+
+            handle = strtoul(tokens[0], &endptr, 16);
             if ((errno == ERANGE && handle == ULONG_MAX) ||
                 (errno != 0 && handle == 0)) {
                 fprintf(stderr, "Error finding status handle: %s\n", strerror(errno));
                 break;
             }
 
-            if (endptr == line) {
+            if (endptr == tokens[0]) {
                 break;
             }
 
-            sdsrange(line, endptr - line + 1, -1);
-            process_status_message(radio, line);
+            process_status_message(radio, tokens[1]);
             break;
 
         case 'M':
@@ -353,8 +357,6 @@ static void radio_process_line(struct radio_t *radio, sds line)
                 fprintf(stderr, "Invalid response line: %s\n", line);
                 break;
             }
-
-
 
             sequence = strtoul(tokens[0], &endptr, 10);
             if ((errno == ERANGE && sequence == ULONG_MAX) ||
@@ -386,20 +388,24 @@ static void radio_process_line(struct radio_t *radio, sds line)
 
         case 'C':
             errno = 0;
-            sequence = strtoul(line, &endptr, 10);
+            if (count != 2) {
+                fprintf(stderr, "Invalid command line: %s\n", line);
+                break;
+            }
+
+            sequence = strtoul(tokens[0], &endptr, 10);
             if ((errno == ERANGE && sequence == ULONG_MAX) ||
                 (errno != 0 && sequence == 0)) {
                 output("Error finding command sequence: %s\n", strerror(errno));
                 break;
             }
 
-            if (line == endptr) {
+            if (tokens[0] == endptr) {
                 output("Cannot find command sequence in: %s\n", line);
                 break;
             }
 
-            sdsrange(line, endptr - line + 1, -1);
-            process_waveform_command(radio, sequence, line);
+            process_waveform_command(radio, sequence, tokens[1]);
             break;
 
         default:
