@@ -243,10 +243,10 @@ static void vita_send_packet_cb(evutil_socket_t socket, short what, void *arg)
     ssize_t bytes_sent;
     size_t packet_len = VITA_PACKET_HEADER_SIZE + (packet->length * sizeof(float));
     packet->length += (VITA_PACKET_HEADER_SIZE / 4);
+    assert(packet_len % 4 == 0);
 
     //  XXX Lots of magic numbers here!
     packet->timestamp_type = 0x50U | (packet->timestamp_type & 0x0FU);
-    assert(packet_len % 4 == 0);
     packet->timestamp_int = time(NULL);
     packet->timestamp_frac = 0;
 
@@ -290,21 +290,6 @@ void vita_send_packet(struct vita *vita, struct waveform_vita_packet *packet)
     }
 }
 
-//void vita_send_meter_packet(struct vita *vita, void *meters, size_t len)
-//{
-//    struct waveform_vita_packet packet = {0};
-//
-//    packet.packet_type = VITA_PACKET_TYPE_EXT_DATA_WITH_STREAM_ID;
-//    packet.stream_id = METER_STREAM_ID;
-//    packet.class_id = METER_CLASS_ID;
-//    packet.timestamp_type = vita->meter_sequence++;
-//
-//    assert(len < sizeof(packet.raw_payload));
-//    memcpy(packet.raw_payload, meters, len);
-//
-//    vita_send_packet(vita, &packet, len);
-//}
-//
 void vita_send_data_packet(struct vita *vita, float *samples, size_t num_samples, enum waveform_packet_type type)
 {
     struct waveform_vita_packet *packet = calloc(1, sizeof(*packet));

@@ -12,48 +12,64 @@
 #include "vita.h"
 
 struct waveform_cb_list {
-    sds name;
-    union {
-        waveform_cmd_cb_t cmd_cb;
-        waveform_state_cb_t state_cb;
-        waveform_data_cb_t data_cb;
-    };
-    void *arg;
-    struct waveform_cb_list *next;
+	sds name;
+	union {
+		waveform_cmd_cb_t cmd_cb;
+		waveform_state_cb_t state_cb;
+		waveform_data_cb_t data_cb;
+	};
+	void *arg;
+	struct waveform_cb_list *next;
+};
+
+struct waveform_meter {
+	sds name;
+	float min;
+	float max;
+	enum waveform_units unit;
+
+	uint16_t id;
+	int value;
+
+	struct waveform_meter *next;
 };
 
 struct waveform_t {
-    char *name;
-    char *short_name;
-    char *underlying_mode;
-    char *version;
-    char active_slice;
+	char *name;
+	char *short_name;
+	char *underlying_mode;
+	char *version;
+	char active_slice;
 
-    int rx_depth;
-    int tx_depth;
+	int rx_depth;
+	int tx_depth;
 
-    struct radio_t *radio;
+	struct radio_t *radio;
 
-    struct vita vita;
+	struct vita vita;
 
-    struct waveform_cb_list *status_cbs;
-    struct waveform_cb_list *state_cbs;
-    struct waveform_cb_list *rx_data_cbs;
-    struct waveform_cb_list *tx_data_cbs;
-    struct waveform_cb_list *cmd_cbs;
+	struct waveform_cb_list *status_cbs;
+	struct waveform_cb_list *state_cbs;
+	struct waveform_cb_list *rx_data_cbs;
+	struct waveform_cb_list *tx_data_cbs;
+	struct waveform_cb_list *cmd_cbs;
 
-    void *ctx;
+	struct waveform_meter *meter_head;
 
-    struct waveform_t *next;
+	void *ctx;
+
+	struct waveform_t *next;
 };
 
 extern struct waveform_t *wf_list;
 
-#define radio_waveforms_for_each(radio, pos) \
-    for (struct waveform_t *(pos) = wf_list; (pos) != NULL; (pos) = (pos)->next) \
-        if ((pos)->radio == (radio))
+#define radio_waveforms_for_each(radio, pos)                                   \
+	for (struct waveform_t * (pos) = wf_list; (pos) != NULL;               \
+	     (pos) = (pos)->next)                                              \
+		if ((pos)->radio == (radio))
 
-#define waveform_cb_for_each(wf, cb_list, pos) \
-            for (struct waveform_cb_list *(pos) = (wf)->cb_list; (pos) != NULL; (pos) = (pos)->next)
+#define waveform_cb_for_each(wf, cb_list, pos)                                 \
+	for (struct waveform_cb_list * (pos) = (wf)->cb_list; (pos) != NULL;   \
+	     (pos) = (pos)->next)
 
 #endif //WAVEFORM_WAVEFORM_H
