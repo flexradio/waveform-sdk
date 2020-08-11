@@ -85,12 +85,17 @@ static void packet_tx(struct waveform_t *waveform, struct waveform_vita_packet *
     waveform_send_data_packet(waveform, xmit_samples, get_packet_len(packet), TRANSMITTER_DATA);
 }
 
+static void set_filter_callback(struct waveform_t *waveform, unsigned int code, char *message, void *arg) {
+    fprintf(stderr, "Invoked callback for code %d, message %s\n", code, message);
+}
+
 static void state_test(struct waveform_t *waveform, enum waveform_state state, void *arg) {
     struct junk_context *ctx = waveform_get_context(waveform);
 
     switch (state) {
         case ACTIVE:
             fprintf(stderr, "wf is active\n");
+            waveform_send_api_command_cb(waveform, set_filter_callback, NULL, "filt 0 100 3000");
             break;
         case INACTIVE:
             fprintf(stderr, "wf is inactive\n");

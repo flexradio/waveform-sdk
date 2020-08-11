@@ -76,7 +76,7 @@ static void vita_read_cb(evutil_socket_t socket, short what, void *ctx)
     if (!(packet.stream_id & 0x0001U)) {
         vita->rx_stream_id = packet.stream_id;
         waveform_cb_for_each(cur_wf, rx_data_cbs, cur_cb) {
-            struct data_cb_wq_desc *desc = (struct data_cb_wq_desc *) calloc(1, sizeof(struct data_cb_wq_desc));
+            struct data_cb_wq_desc *desc = calloc(1, sizeof(*desc));
             pthread_workitem_handle_t handle;
             unsigned int gencountp;
 
@@ -91,7 +91,7 @@ static void vita_read_cb(evutil_socket_t socket, short what, void *ctx)
         //  Transmit packet processing
         vita->tx_stream_id = packet.stream_id;
         waveform_cb_for_each(cur_wf, tx_data_cbs, cur_cb) {
-            struct data_cb_wq_desc *desc = (struct data_cb_wq_desc *) calloc(1, sizeof(struct data_cb_wq_desc));
+            struct data_cb_wq_desc *desc = calloc(1, sizeof(*desc));
             pthread_workitem_handle_t handle;
             unsigned int gencountp;
 
@@ -307,7 +307,7 @@ void vita_send_packet(struct vita *vita, struct waveform_vita_packet *packet)
 //
 void vita_send_data_packet(struct vita *vita, float *samples, size_t num_samples, enum waveform_packet_type type)
 {
-    struct waveform_vita_packet *packet = calloc(1, sizeof(struct waveform_vita_packet));
+    struct waveform_vita_packet *packet = calloc(1, sizeof(*packet));
 
     packet->packet_type = VITA_PACKET_TYPE_IF_DATA_WITH_STREAM_ID;
     packet->class_id = AUDIO_CLASS_ID;

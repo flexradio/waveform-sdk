@@ -21,10 +21,67 @@
 #include <pthread_workqueue.h>
 
 #include <sds.h>
+#include <utlist.h>
 
 #include "utils.h"
 #include "waveform.h"
 #include "radio.h"
+
+static void add_sequence_to_response_queue(struct waveform_t *waveform, waveform_response_cb_t cb, void *ctx)
+{
+    struct response_queue_entry *new_entry;
+
+    new_entry = (struct response_queue_entry *) malloc(sizeof(*new_entry));
+    new_entry->cb = cb;
+    new_entry->sequence = waveform->radio->sequence;
+    new_entry->ctx = ctx;
+
+    LL_APPEND(waveform->radio->rq_head, new_entry);
+}
+
+struct resp_cb_wq_desc {
+    unsigned int code;
+    sds message;
+    struct response_queue_entry *rq_entry;
+};
+
+static void rq_call_cb(void *arg)
+{
+    struct resp_cb_wq_desc *desc = (struct resp_cb_wq_desc *) arg;
+
+    desc->rq_entry->cb(desc->rq_entry->wf, desc->code, desc->message, desc->rq_entry->ctx);
+
+    free(desc->rq_entry);
+    free(desc);
+}
+
+static void complete_response_entry(struct radio_t *radio, unsigned int sequence, unsigned int code, sds message)
+{
+    struct response_queue_entry *current_entry;
+    pthread_workitem_handle_t handle;
+    unsigned int gencountp;
+    struct resp_cb_wq_desc *desc = calloc(1, sizeof(*desc));
+
+    LL_SEARCH_SCALAR(radio->rq_head, current_entry, sequence, sequence);
+    if (!current_entry)
+        return;
+
+    desc->code = code;
+    desc->rq_entry = current_entry;
+    desc->message = sdsdup(message);
+    pthread_workqueue_additem_np(radio->cb_wq, rq_call_cb, desc, &handle, &gencountp);
+
+    LL_DELETE(radio->rq_head, current_entry);
+}
+
+static void destroy_response_queue(struct waveform_t *waveform)
+{
+    struct response_queue_entry *current_entry, *tmp_entry;
+
+    LL_FOREACH_SAFE(waveform->radio->rq_head, current_entry, tmp_entry) {
+        LL_DELETE(waveform->radio->rq_head, current_entry);
+    }
+}
 
 static void interlock_state_change(struct radio_t *radio, sds state)
 {
@@ -40,6 +97,7 @@ static void interlock_state_change(struct radio_t *radio, sds state)
 
     radio_waveforms_for_each(radio, cur_wf) {
         for (struct waveform_cb_list *cur_cb = cur_wf->state_cbs; cur_cb != NULL; cur_cb = cur_cb->next) {
+            // XXX Spawn to worker thread.
             (cur_cb->state_cb)(cur_wf, cb_state, cur_cb->arg);
         }
     }
@@ -49,6 +107,7 @@ static void mode_change(struct radio_t *radio, sds mode, char slice)
 {
     fprintf(stderr, "Got a request for mode %s on slice %d\n", mode, slice);
 
+    //  XXX Run these in the work queue.
     radio_waveforms_for_each(radio, cur_wf) {
         //  User has deselected this waveform's mode.
         if (cur_wf->active_slice == slice && strcmp(cur_wf->short_name, mode) != 0) {
@@ -66,7 +125,6 @@ static void mode_change(struct radio_t *radio, sds mode, char slice)
             }
             cur_wf->active_slice = slice;
             vita_init(cur_wf);
-            // XXX Start VITA-49
         }
     }
 }
@@ -130,7 +188,7 @@ static void process_status_message(struct radio_t *radio, sds message)
 
     radio_waveforms_for_each(radio, cur_wf) {
         waveform_cb_for_each(cur_wf, status_cbs, cur_cb) {
-            struct status_cb_wq_desc *desc = (struct status_cb_wq_desc *) calloc(1, sizeof(struct status_cb_wq_desc));
+            struct status_cb_wq_desc *desc = calloc(1, sizeof(*desc));
             pthread_workitem_handle_t handle;
             unsigned int gencountp;
 
@@ -207,7 +265,7 @@ static void process_waveform_command(struct radio_t *radio, int sequence, sds me
                 continue;
             }
 
-            struct cmd_cb_wq_desc *desc = (struct cmd_cb_wq_desc *) calloc(1, sizeof(struct cmd_cb_wq_desc));
+            struct cmd_cb_wq_desc *desc = calloc(1, sizeof(*desc));
             pthread_workitem_handle_t handle;
             unsigned int gencountp;
 
@@ -229,6 +287,7 @@ static void radio_process_line(struct radio_t *radio, sds line)
     int ret;
     unsigned long code, handle, sequence;
     unsigned int api_version[4];
+    int count;
 
     assert(radio != NULL);
     assert(line != NULL);
@@ -236,6 +295,8 @@ static void radio_process_line(struct radio_t *radio, sds line)
     fprintf(stderr, "Rx: %s\n", line);
     char command = *line;
     sdsrange(line, 1, -1);
+    sds *tokens = sdssplitlen(line, sdslen(line), "|", 1, &count);
+
     switch(command) {
         case 'V':
             // TODO: Fix me so that I read into the api struct.
@@ -249,6 +310,7 @@ static void radio_process_line(struct radio_t *radio, sds line)
 
             fprintf(stdout, "Radio API Version: %d.%d(%d.%d)\n", api_version[0], api_version[1], api_version[2], api_version[3]);
             break;
+
         case 'H':
             errno = 0;
             radio->handle = strtoul(line, &endptr, 16);
@@ -264,6 +326,7 @@ static void radio_process_line(struct radio_t *radio, sds line)
             }
 
             break;
+
         case 'S':
             errno = 0;
             handle = strtoul(line, &endptr, 16);
@@ -280,38 +343,47 @@ static void radio_process_line(struct radio_t *radio, sds line)
             sdsrange(line, endptr - line + 1, -1);
             process_status_message(radio, line);
             break;
+
         case 'M':
             break;
+
         case 'R':
             errno = 0;
-            sequence = strtoul(line, &endptr, 10);
+            if (count != 3) {
+                fprintf(stderr, "Invalid response line: %s\n", line);
+                break;
+            }
+
+
+
+            sequence = strtoul(tokens[0], &endptr, 10);
             if ((errno == ERANGE && sequence == ULONG_MAX) ||
                 (errno != 0 && sequence == 0)) {
                 fprintf(stderr, "Error finding response sequence: %s\n", strerror(errno));
                 break;
             }
 
-            if (endptr == line) {
+            if (endptr == tokens[0]) {
                 fprintf(stderr, "Cannot find response sequence in: %s\n", line);
                 break;
             }
 
             errno = 0;
-            code = strtoul(endptr + 1, &response_message, 16);
+            code = strtoul(tokens[1], &endptr, 16);
             if ((errno == ERANGE && code == ULONG_MAX) ||
                 (errno != 0 && code == 0)) {
                 fprintf(stderr, "Error finding response code: %s\n", strerror(errno));
                 break;
             }
 
-            if (response_message == endptr + 1) {
+            if (endptr == tokens[1]) {
                 fprintf(stderr, "Cannot find response code in: %s\n", line);
                 break;
             }
 
-            //  Fill with creamy center
-//            complete_response_entry(api, sequence, code, response_message + 1);
+            complete_response_entry(radio, sequence, code, tokens[2]);
             break;
+
         case 'C':
             errno = 0;
             sequence = strtoul(line, &endptr, 10);
@@ -329,21 +401,24 @@ static void radio_process_line(struct radio_t *radio, sds line)
             sdsrange(line, endptr - line + 1, -1);
             process_waveform_command(radio, sequence, line);
             break;
+
         default:
             fprintf(stderr, "Unknown command: %s\n", line);
             break;
     }
+
+    sdsfreesplitres(tokens, count);
 }
 
-long waveform_radio_send_api_command_cb_va(struct radio_t *radio, waveform_response_cb_t cb, void *arg, char *command, va_list ap)
+long waveform_radio_send_api_command_cb_va(struct waveform_t *wf, waveform_response_cb_t cb, void *arg, char *command, va_list ap)
 {
     int cmdlen;
     char *message_format;
     va_list aq;
 
-    struct evbuffer *output = bufferevent_get_output(radio->bev);
+    struct evbuffer *output = bufferevent_get_output(wf->radio->bev);
 
-    cmdlen = asprintf(&message_format, "C%ld|%s\n", radio->sequence, command);
+    cmdlen = asprintf(&message_format, "C%ld|%s\n", wf->radio->sequence, command);
     if (cmdlen < 0) {
         return -1;
     }
@@ -358,19 +433,19 @@ long waveform_radio_send_api_command_cb_va(struct radio_t *radio, waveform_respo
     free(message_format);
 
     if (cb) {
-//        add_sequence_to_response_queue(api, cb, ctx);
+        add_sequence_to_response_queue(wf, cb, arg);
     }
 
-    return ++radio->sequence;
+    return ++wf->radio->sequence;
 }
 
-static inline long waveform_radio_send_api_command_cb(struct radio_t *radio, waveform_response_cb_t cb, void *arg, char *command, ...)
+static inline long waveform_radio_send_api_command_cb(struct waveform_t *wf, waveform_response_cb_t cb, void *arg, char *command, ...)
 {
     va_list ap;
     long ret;
 
     va_start(ap, command);
-    ret = waveform_radio_send_api_command_cb_va(radio, cb, arg, command, ap);
+    ret = waveform_radio_send_api_command_cb_va(wf, cb, arg, command, ap);
     va_end(ap);
 
     return ret;
@@ -378,22 +453,27 @@ static inline long waveform_radio_send_api_command_cb(struct radio_t *radio, wav
 
 static void radio_init(struct radio_t *radio)
 {
-    waveform_radio_send_api_command_cb(radio, NULL, NULL, "sub slice all");
+    int sub = 0;
 
     radio_waveforms_for_each(radio, cur_wf) {
-        waveform_radio_send_api_command_cb(radio, NULL, NULL,
+        if (sub == 0) {
+            waveform_radio_send_api_command_cb(cur_wf, NULL, NULL, "sub slice all");
+            sub = 1;
+        }
+
+        waveform_radio_send_api_command_cb(cur_wf, NULL, NULL,
                 "waveform create name=%s mode=%s underlying_mode=%s version=%s",
                 cur_wf->name, cur_wf->short_name, cur_wf->underlying_mode, cur_wf->version);
-        waveform_radio_send_api_command_cb(radio, NULL, NULL,
+        waveform_radio_send_api_command_cb(cur_wf, NULL, NULL,
                 "waveform set %s tx=1", cur_wf->name);
-        waveform_radio_send_api_command_cb(radio, NULL, NULL,
+        waveform_radio_send_api_command_cb(cur_wf, NULL, NULL,
                 "waveform set %s rx_filter depth=%d", cur_wf->name, cur_wf->rx_depth);
-        waveform_radio_send_api_command_cb(radio, NULL, NULL,
+        waveform_radio_send_api_command_cb(cur_wf, NULL, NULL,
                 "waveform set %s tx_filter depth=%d", cur_wf->name, cur_wf->tx_depth);
     }
 }
 
-static void radio_event_cb(struct bufferevent *bev, short what, void *ctx)
+static void radio_event_cb(struct bufferevent *bev __attribute__ ((unused)), short what, void *ctx)
 {
     struct radio_t* radio = (struct radio_t *) ctx;
     switch (what) {
@@ -474,7 +554,7 @@ static void* radio_evt_loop(void *arg)
 }
 
 struct radio_t *waveform_radio_create(struct sockaddr_in *addr) {
-    struct radio_t *radio = (struct radio_t *) calloc(1, sizeof(struct radio_t));
+    struct radio_t *radio = calloc(1, sizeof(*radio));
     if (!radio) {
         return NULL;
     }

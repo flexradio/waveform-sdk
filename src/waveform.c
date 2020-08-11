@@ -34,9 +34,9 @@
 
 struct waveform_t *wf_list;
 
-struct waveform_t* waveform_create(struct radio_t *radio, char* name, char* short_name, char* underlying_mode, char *version)
+struct waveform_t *waveform_create(struct radio_t *radio, char *name, char *short_name, char *underlying_mode, char *version)
 {
-    struct waveform_t* wave = (struct waveform_t *) calloc(1, sizeof(struct waveform_t));
+    struct waveform_t *wave = calloc(1, sizeof(*wave));
     if (!wave) {
         return NULL;
     }
@@ -102,7 +102,7 @@ void waveform_destroy(struct waveform_t* waveform)
 
 int waveform_register_status_cb(struct waveform_t* waveform, char* status_name, waveform_cmd_cb_t cb, void *arg)
 {
-    struct waveform_cb_list *new_cb = calloc(1, sizeof(struct waveform_cb_list));
+    struct waveform_cb_list *new_cb = calloc(1, sizeof(*new_cb));
     if(!new_cb) {
         return -1;
     }
@@ -131,7 +131,7 @@ inline long waveform_send_api_command_cb(struct waveform_t* waveform, waveform_r
     long ret;
 
     va_start(ap, command);
-    ret = waveform_radio_send_api_command_cb_va(waveform->radio, cb, arg, command, ap);
+    ret = waveform_radio_send_api_command_cb_va(waveform, cb, arg, command, ap);
     va_end(ap);
 
     return ret;
@@ -139,7 +139,7 @@ inline long waveform_send_api_command_cb(struct waveform_t* waveform, waveform_r
 
 int waveform_register_state_cb(struct waveform_t *waveform, waveform_state_cb_t cb, void *arg)
 {
-    struct waveform_cb_list *new_cb = (struct waveform_cb_list *) calloc(1, sizeof(struct waveform_cb_list));
+    struct waveform_cb_list *new_cb = calloc(1, sizeof(*new_cb));
     if (!new_cb) {
         return -1;
     }
@@ -160,7 +160,7 @@ int waveform_register_state_cb(struct waveform_t *waveform, waveform_state_cb_t 
 
 int waveform_register_rx_data_cb(struct waveform_t* waveform, waveform_data_cb_t cb, void *arg)\
 {
-    struct waveform_cb_list *new_cb = (struct waveform_cb_list *) calloc(1, sizeof(struct waveform_cb_list));
+    struct waveform_cb_list *new_cb = calloc(1, sizeof(*new_cb));
     if (!new_cb) {
         return -1;
     }
@@ -181,7 +181,7 @@ int waveform_register_rx_data_cb(struct waveform_t* waveform, waveform_data_cb_t
 
 int waveform_register_tx_data_cb(struct waveform_t* waveform, waveform_data_cb_t cb, void *arg)\
 {
-    struct waveform_cb_list *new_cb = (struct waveform_cb_list *) calloc(1, sizeof(struct waveform_cb_list));
+    struct waveform_cb_list *new_cb = calloc(1, sizeof(*new_cb));
     if (!new_cb) {
         return -1;
     }
@@ -202,7 +202,7 @@ int waveform_register_tx_data_cb(struct waveform_t* waveform, waveform_data_cb_t
 
 int waveform_register_command_cb(struct waveform_t* waveform, char *command_name, waveform_cmd_cb_t cb, void *arg)
 {
-    struct waveform_cb_list *new_cb = (struct waveform_cb_list *) calloc(1, sizeof(struct waveform_cb_list));
+    struct waveform_cb_list *new_cb = calloc(1, sizeof(*new_cb));
     if (!new_cb) {
         return -1;
     }
