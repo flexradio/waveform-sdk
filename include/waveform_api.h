@@ -2,7 +2,7 @@
 /// @file waveform.h
 /// @brief Public definitions of waveform library functions
 /// @authors Annaliese McDermond <anna@flex-radio.com>
-/// 
+///
 /// @copyright Copyright (c) 2020 FlexRadio Systems
 ///
 /// This program is free software: you can redistribute it and/or modify
@@ -21,8 +21,8 @@
 #ifndef WAVEFORM_SDK_WAVEFORM_API_H
 #define WAVEFORM_SDK_WAVEFORM_API_H
 
-#include <sys/types.h>
 #include <netinet/in.h>
+#include <sys/types.h>
 
 /// @struct waveform_t
 /// @brief Opaque structure to keep track of the waveform.
@@ -38,7 +38,8 @@ struct waveform_args_t;
 struct waveform_vita_packet;
 
 /// @brief Enumeration for waveform meter units
-enum waveform_units {
+enum waveform_units
+{
     DB,
     DBM,
     DBFS,
@@ -53,23 +54,25 @@ enum waveform_units {
     NONE
 };
 
-enum waveform_state {
-    ACTIVE,
-    INACTIVE,
-    PTT_REQUESTED,
-    UNKEY_REQUESTED
+enum waveform_state
+{
+   ACTIVE,
+   INACTIVE,
+   PTT_REQUESTED,
+   UNKEY_REQUESTED
 };
 
-enum waveform_packet_type {
-    SPEAKER_DATA,
-    TRANSMITTER_DATA
+enum waveform_packet_type
+{
+   SPEAKER_DATA,
+   TRANSMITTER_DATA
 };
 
 struct waveform_meter_entry {
-    char *name;
-    float min;
-    float max;
-    enum waveform_units unit;
+   char* name;
+   float min;
+   float max;
+   enum waveform_units unit;
 };
 
 /// @brief Called when the waveform state changes
@@ -77,7 +80,8 @@ struct waveform_meter_entry {
 /// @param waveform The waveform changing state.
 /// @param state The state to which the waveform is transitioning.
 /// @param arg A user-defined argument passed to waveform_register_activate_cb() or waveform_register_deactivate_cb()
-typedef void (*waveform_state_cb_t)(struct waveform_t *waveform, enum waveform_state state, void *arg);
+typedef void (*waveform_state_cb_t)(struct waveform_t* waveform,
+                                    enum waveform_state state, void* arg);
 
 /// @brief Called when a command is requested
 /// @details when a command is requested from the client, this callback is called.
@@ -85,7 +89,8 @@ typedef void (*waveform_state_cb_t)(struct waveform_t *waveform, enum waveform_s
 /// @param argc The number of arguments to the command
 /// @param argv The arguments to the command.
 /// @param arg A user-defined argument passed to waveform_register_command()
-typedef int (*waveform_cmd_cb_t)(struct waveform_t *waveform, unsigned int argc, char *argv[], void *arg);
+typedef int (*waveform_cmd_cb_t)(struct waveform_t* waveform, unsigned int argc,
+                                 char* argv[], void* arg);
 
 /// @brief Called when data is ready for the waveform
 /// @details When new data arrives for the waveform, this callback is called.  It is recommended that you create a
@@ -97,7 +102,9 @@ typedef int (*waveform_cmd_cb_t)(struct waveform_t *waveform, unsigned int argc,
 /// @param packet A pointer to the received data
 /// @param packet_size the size of the received packet in bytes
 /// @param arg A user-defined argument passed to the data callback creation functions.
-typedef void (*waveform_data_cb_t)(struct waveform_t *waveform, struct waveform_vita_packet *packet, size_t packet_size, void *arg);
+typedef void (*waveform_data_cb_t)(struct waveform_t* waveform,
+                                   struct waveform_vita_packet* packet,
+                                   size_t packet_size, void* arg);
 
 /// @brief Called when a response to a waveform command is received
 /// @details This is called when a response is received to a command you issued to your waveform.
@@ -107,7 +114,9 @@ typedef void (*waveform_data_cb_t)(struct waveform_t *waveform, struct waveform_
 /// @param message The text message from the command result.  Upon completion of this callback the storage for this
 ///                string will be freed.  If you need it past the context of this callback function you should copy
 ///                it to storage that you allocate.
-typedef void (*waveform_response_cb_t)(struct waveform_t *waveform, unsigned int code, char *message, void *arg);
+typedef void (*waveform_response_cb_t)(struct waveform_t* waveform,
+                                       unsigned int code, char* message,
+                                       void* arg);
 
 /// @brief Create a waveform.
 /// @details Creates a waveform for processing.  This will register the waveform with the SDK and set it up to be
@@ -125,12 +134,14 @@ typedef void (*waveform_response_cb_t)(struct waveform_t *waveform, unsigned int
 /// @return A pointer to an allocated structure representing the waveform.  This structure is opaque and you should not
 ///         attempt to modify it in any way.  You are responsible for freeing the structure using waveform_destroy()
 ///         when you are done with it.
-struct waveform_t *waveform_create(struct radio_t *radio, char *name, char *short_name, char *underlying_mode, char *version);
+struct waveform_t* waveform_create(struct radio_t* radio, char* name,
+                                   char* short_name, char* underlying_mode,
+                                   char* version);
 
 /// @brief Destroy a waveform
 /// @details Destroys a previously allocated waveform freeing all resources it consumes.
 /// @param waveform A pointer to the waveform structure to be destroyed.
-void waveform_destroy(struct waveform_t *waveform);
+void waveform_destroy(struct waveform_t* waveform);
 
 /// @brief Register a stauts change callback for a waveform.
 /// @details When the slice to which the waveform is attached changes state, such as activating or deactivating the
@@ -139,7 +150,8 @@ void waveform_destroy(struct waveform_t *waveform);
 /// @param cb The callback function
 /// @param arg A user-defined argument to be passed to the callback upon execution. Can be NULL.
 /// @return 0 upon succes, -1 on failure
-int waveform_register_state_cb(struct waveform_t *waveform, waveform_state_cb_t cb, void *arg);
+int waveform_register_state_cb(struct waveform_t* waveform,
+                               waveform_state_cb_t cb, void* arg);
 
 /// @brief Register a transmitter data callback for a waveform.
 /// @details Registers a callback that is called when there is data from the incoming audio source to be transmitted.
@@ -149,7 +161,8 @@ int waveform_register_state_cb(struct waveform_t *waveform, waveform_state_cb_t 
 /// @param cb The callback function
 /// @param arg A user-defined argument to be passed to the callback on execution.  Can be NULL.
 /// @return 0 upon success, -1 on failure
-int waveform_register_tx_data_cb(struct waveform_t *waveform, waveform_data_cb_t cb, void *arg);
+int waveform_register_tx_data_cb(struct waveform_t* waveform,
+                                 waveform_data_cb_t cb, void* arg);
 
 /// @brief Register a receive data callback for a waveform.
 /// @details Registers a callback that is called when there is data from the incoming RF data from the receiver.
@@ -159,7 +172,8 @@ int waveform_register_tx_data_cb(struct waveform_t *waveform, waveform_data_cb_t
 /// @param cb The callback function
 /// @param arg A user-defined argument to be passed to the callback on execution.  Can be NULL.
 /// @return 0 upon success, -1 on failure
-int waveform_register_rx_data_cb(struct waveform_t *waveform, waveform_data_cb_t cb, void *arg);
+int waveform_register_rx_data_cb(struct waveform_t* waveform,
+                                 waveform_data_cb_t cb, void* arg);
 
 /// @brief Register a status callback.
 /// @details Registers a callback is called when the radio status changes.  This function also handles creating the
@@ -170,7 +184,8 @@ int waveform_register_rx_data_cb(struct waveform_t *waveform, waveform_data_cb_t
 /// @param cb The callback function
 /// @param arg A user-defined argument to be passed to the callback on execution.  Can be NULL.
 /// @return 0 upon success, -1 on failure
-int waveform_register_status_cb(struct waveform_t *waveform, char *status_name, waveform_cmd_cb_t cb, void *arg);
+int waveform_register_status_cb(struct waveform_t* waveform, char* status_name,
+                                waveform_cmd_cb_t cb, void* arg);
 
 /// @brief Register a command callback.
 /// @details Registers a callback is called when a waveform command is requested.
@@ -181,7 +196,9 @@ int waveform_register_status_cb(struct waveform_t *waveform, char *status_name, 
 /// @param cb The callback function
 /// @param arg A user-defined argument to be passed to the callback on execution.  Can be NULL.
 /// @return 0 upon success, -1 on failure
-int waveform_register_command_cb(struct waveform_t *waveform, char *command_name, waveform_cmd_cb_t cb, void *arg);
+int waveform_register_command_cb(struct waveform_t* waveform,
+                                 char* command_name, waveform_cmd_cb_t cb,
+                                 void* arg);
 
 /// @brief Sends a command to the radio
 /// @details Does not wait for a response from the radio.  This is a shortcut for passing NULL to the cb parameter of
@@ -190,8 +207,9 @@ int waveform_register_command_cb(struct waveform_t *waveform, char *command_name
 /// @param command A format string in printf(3) format.
 /// @param ... Arguments for format specification
 /// @returns The sequence number on success or -1 on failure.
-#define waveform_send_api_command(waveform, command, ...) \
-   waveform_send_api_command_cb(waveform, NULL, NULL, command, ##__VA_ARGS__)
+#define waveform_send_api_command(waveform, command, ...)      \
+   waveform_send_api_command_cb(waveform, NULL, NULL, command, \
+                                ##__VA_ARGS__)
 
 /// @brief Sends a command to the radio and invokes callback
 /// @details This version of the command processing waits for a response from the radio and invokes your desired
@@ -203,7 +221,9 @@ int waveform_register_command_cb(struct waveform_t *waveform, char *command_name
 /// @param command A format string in printf(3) format.
 /// @param ... Arguments for format specification
 /// @returns The sequence number on success or -1 on failure.
-long waveform_send_api_command_cb(struct waveform_t *waveform, waveform_response_cb_t cb, void *arg, char *command, ...);
+long waveform_send_api_command_cb(struct waveform_t* waveform,
+                                  waveform_response_cb_t cb, void* arg,
+                                  char* command, ...);
 
 /// @brief Adds a new meter to a meter list
 /// @details Adds a new meter to a meter list and registers it with the radio.
@@ -213,7 +233,8 @@ long waveform_send_api_command_cb(struct waveform_t *waveform, waveform_response
 /// @param max The maximum value the meter can take on
 /// @param unit The unit of the meter
 /// @returns 0 for success and -1 for failure
-void waveform_register_meter(struct waveform_t *waveform, const char *name, float min, float max, enum waveform_units unit);
+void waveform_register_meter(struct waveform_t* waveform, const char* name,
+                             float min, float max, enum waveform_units unit);
 
 /// @brief Sets the value of a meter given the name
 /// @details This has the same functionality as a waveform_meter_find() followed by a waveform_meter_set_value()
@@ -221,9 +242,11 @@ void waveform_register_meter(struct waveform_t *waveform, const char *name, floa
 /// @param name The name of the meter to set
 /// @param value The value of the meter
 /// @returns -1 if the meter name cannot be found in the list, otherwise 0 for success.
-int waveform_meter_set_float_value(struct waveform_t *waveform, char* name, float value);
+int waveform_meter_set_float_value(struct waveform_t* waveform, char* name,
+                                   float value);
 
-int waveform_meter_set_int_value(struct waveform_t *waveform, char* name, short value);
+int waveform_meter_set_int_value(struct waveform_t* waveform, char* name,
+                                 short value);
 
 /// @brief Send a meter list to the radio
 /// @details The meter values in the list will be sent to the radio.  Note that this will cause one or more UDP packets
@@ -231,7 +254,7 @@ int waveform_meter_set_int_value(struct waveform_t *waveform, char* name, short 
 ///          a list and sent simultaneously.
 /// @param meter_list The list of meters to send
 /// @returns 0 for success or -1 for failure
-int waveform_meters_send(struct waveform_t *waveform);
+int waveform_meters_send(struct waveform_t* waveform);
 
 /// @brief Creates a radio definition
 /// @details Creates a radio structure.  This does not connect to the radio.  A radio should be created and
@@ -240,12 +263,12 @@ int waveform_meters_send(struct waveform_t *waveform);
 /// @param addr The address of the radio you intend to connect to.  There will eventually be a discovery function to
 ///             be able to find radios out there.
 /// @returns An opaque structure representing the radio.
-struct radio_t *waveform_radio_create(struct sockaddr_in *addr);
+struct radio_t* waveform_radio_create(struct sockaddr_in* addr);
 
 /// @brief Destroys a radio
 /// @details Destroys a radio created previously by waveform_radio_create() and frees all associated memory.
 /// @param radio The radio to destroy
-void waveform_radio_destroy(struct radio_t *radio);
+void waveform_radio_destroy(struct radio_t* radio);
 
 /// @brief Waits for the radio processing to complete
 /// @details After your main thread has finished launching the radio with waveform_radio_start(), you will need to
@@ -253,7 +276,7 @@ void waveform_radio_destroy(struct radio_t *radio);
 ///          waveform_radio_wait() after starting the radio.
 /// @param radio The radio on which to wait.
 /// @returns 0 on success or -1 for failure.
-int waveform_radio_wait(struct radio_t *radio);
+int waveform_radio_wait(struct radio_t* radio);
 
 /// @brief Start the radio
 /// @details Connects to the radio and starts the event loop to begin processing commands.  All callbacks should be
@@ -262,7 +285,7 @@ int waveform_radio_wait(struct radio_t *radio);
 ///          waveform_radio_wait() to wait for its completion.
 /// @param radio The radio on which to wait.
 /// @returns 0 on success or -1 for failure.
-int waveform_radio_start(struct radio_t *radio);
+int waveform_radio_start(struct radio_t* radio);
 
 /// @brief Sends a data packet to the radio
 /// @details After doing any processing necessary in the waveform, you must send back an output packet to the radio
@@ -274,13 +297,15 @@ int waveform_radio_start(struct radio_t *radio);
 ///                as the library will do any necessary byte swapping for transmission.
 /// @param type The type of packet to send.  This is either SPEAKER_DATA for playing on the audio output of the radio
 ///             or TRANSMITTER_DATA for sending to the RF transmitter.
-void waveform_send_data_packet(struct waveform_t *waveform, float *samples, size_t num_samples, enum waveform_packet_type type);
+void waveform_send_data_packet(struct waveform_t* waveform, float* samples,
+                               size_t num_samples,
+                               enum waveform_packet_type type);
 
 /// @brief Gets the length of a received packet
 /// @details Returns the length of the data in a packet received from the radio.
 /// @param packet A packet returned from the radio in the waveform_data_cb_t callback.
 /// @returns Length of the data from the radio in bytes.
-uint16_t get_packet_len(struct waveform_vita_packet *packet);
+uint16_t get_packet_len(struct waveform_vita_packet* packet);
 
 /// @brief Get the packet data
 /// @details Returns an array of floating point values representing either L/R or I/Q pairs depending on the underlying
@@ -288,19 +313,19 @@ uint16_t get_packet_len(struct waveform_vita_packet *packet);
 /// @param packet A packet returned from the radio in the waveform_data_cb_t callback.
 /// @returns 32-bit floating point values from the radio represening data from the microphone or receiver in host byte
 ///          order.
-float *get_packet_data(struct waveform_vita_packet *packet);
+float* get_packet_data(struct waveform_vita_packet* packet);
 
 /// @brief Gets the integer timestamp from a received packet.
 /// @details Returns the integral timestamp from the VITA-49 packet from the radio.
 /// @param packet A packet returned from the radio in the waveform_data_cb_t callback.
 /// @returns An integer representing the integral timestamp of the packet in host byte order.
-uint32_t get_packet_ts_int(struct waveform_vita_packet *packet);
+uint32_t get_packet_ts_int(struct waveform_vita_packet* packet);
 
 /// @brief Gets the fractional timestamp from a received packet.
 /// @details Returns the fractional timestamp from the VITA-49 packet from the radio.
 /// @param packet A packet returned from the radio in the waveform_data_cb_t callback.
 /// @returns An integer representing the fractional timestamp of the packet in host byte order.
-uint64_t get_packet_ts_frac(struct waveform_vita_packet *packet);
+uint64_t get_packet_ts_frac(struct waveform_vita_packet* packet);
 
 /// @brief Sets a structure for waveform context
 /// @details State is sometimes necessary for a waveform to preserve values.  This function allows you to register
@@ -308,15 +333,16 @@ uint64_t get_packet_ts_frac(struct waveform_vita_packet *packet);
 ///          *NOT* locked by the API so it is incumbent on the user to ensure thread safety of any of the contents.
 /// @param wf The waveform to set context
 /// @param ctx A pointer to a context structure
-void waveform_set_context(struct waveform_t *wf, void *ctx);
+void waveform_set_context(struct waveform_t* wf, void* ctx);
 
 /// @brief Retrieves the waveform context
 /// @details This function retrieves the context pointer set by waveform_set_context()
 /// @param wf The waveform to set context
 /// @returns The context structure
-void *waveform_get_context(struct waveform_t *wf);
+void* waveform_get_context(struct waveform_t* wf);
 
+void waveform_register_meter_list(struct waveform_t* wf,
+                                  const struct waveform_meter_entry list[],
+                                  int num_meters);
 
-void waveform_register_meter_list(struct waveform_t *wf, const struct waveform_meter_entry list[], int num_meters);
-
-#endif //WAVEFORM_SDK_WAVEFORM_H
+#endif//WAVEFORM_SDK_WAVEFORM_H

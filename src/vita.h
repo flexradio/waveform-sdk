@@ -44,50 +44,51 @@
 #define AUDIO_CLASS_ID ((FLEX_OUI << 32u) | 0x534c03e3LLU)
 #endif
 
-#define STREAM_BITS_MASK                                                       \
-	(STREAM_BITS_IN | STREAM_BITS_OUT | STREAM_BITS_METER |                \
-	 STREAM_BITS_WAVEFORM)
+#define STREAM_BITS_MASK                                   \
+   (STREAM_BITS_IN | STREAM_BITS_OUT | STREAM_BITS_METER | \
+    STREAM_BITS_WAVEFORM)
 
 #pragma pack(push, 1)
 struct waveform_vita_packet {
-	uint16_t length;
-	uint8_t timestamp_type;
-	uint8_t packet_type;
-	uint32_t stream_id;
-	uint64_t class_id;
-	uint32_t timestamp_int;
-	uint64_t timestamp_frac;
-	union {
-		uint8_t raw_payload[1440];
-		float if_samples[360];
-		struct {
-			uint16_t id;
-			uint16_t value;
-		} meter[360];
-	};
+   uint16_t length;
+   uint8_t timestamp_type;
+   uint8_t packet_type;
+   uint32_t stream_id;
+   uint64_t class_id;
+   uint32_t timestamp_int;
+   uint64_t timestamp_frac;
+   union
+   {
+      uint8_t raw_payload[1440];
+      float if_samples[360];
+      struct {
+         uint16_t id;
+         uint16_t value;
+      } meter[360];
+   };
 };
 #pragma pack(pop)
 
-#define VITA_PACKET_HEADER_SIZE                                                \
-	(sizeof(struct waveform_vita_packet) -                                 \
-	 sizeof(((struct waveform_vita_packet){ 0 }).raw_payload))
+#define VITA_PACKET_HEADER_SIZE           \
+   (sizeof(struct waveform_vita_packet) - \
+    sizeof(((struct waveform_vita_packet) {0}).raw_payload))
 
 struct vita {
-	int sock;
-	unsigned short port; // XXX Do we really need to keep this around?
-	pthread_t thread;
-	struct event_base *base;
-	struct event *evt;
-	unsigned int meter_sequence;
-	unsigned int data_sequence;
-	uint32_t tx_stream_id;
-	uint32_t rx_stream_id;
+   int sock;
+   unsigned short port;// XXX Do we really need to keep this around?
+   pthread_t thread;
+   struct event_base* base;
+   struct event* evt;
+   unsigned int meter_sequence;
+   unsigned int data_sequence;
+   uint32_t tx_stream_id;
+   uint32_t rx_stream_id;
 };
 
-int vita_init(struct waveform_t *wf);
-void vita_send_packet(struct vita *vita, struct waveform_vita_packet *packet);
-void vita_send_data_packet(struct vita *vita, float *samples,
-			   size_t num_samples, enum waveform_packet_type type);
-void vita_destroy(struct waveform_t *wf);
+int vita_init(struct waveform_t* wf);
+void vita_send_packet(struct vita* vita, struct waveform_vita_packet* packet);
+void vita_send_data_packet(struct vita* vita, float* samples,
+                           size_t num_samples, enum waveform_packet_type type);
+void vita_destroy(struct waveform_t* wf);
 
-#endif //WAVEFORM_SDK_VITA_H
+#endif//WAVEFORM_SDK_VITA_H
