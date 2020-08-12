@@ -17,6 +17,7 @@ struct junk_context {
    pthread_mutex_t rx_phase_lock;
    pthread_mutex_t tx_phase_lock;
    int tx;
+   short snr;
 };
 
 static const float sin_table[] = {0.0F,
@@ -45,9 +46,9 @@ static const float sin_table[] = {0.0F,
                                   -0.2588190451025215F};
 
 static const struct waveform_meter_entry meters[] = {
-      {.name = "fdv-snr", .min = -100.0f, .max = 100.0f, .unit = DB},
-      {.name = "fdv-foff", .min = 0.0f, .max = 100000.0f, .unit = DB},
-      {.name = "fdv-clock-offset", .min = 0.0f, .max = 100000.0f, .unit = DB}};
+      {.name = "junk-snr", .min = -100.0f, .max = 100.0f, .unit = DB},
+      {.name = "junk-foff", .min = 0.0f, .max = 100000.0f, .unit = DB},
+      {.name = "junk-clock-offset", .min = 0.0f, .max = 100000.0f, .unit = DB}};
 
 static int echo_command(struct waveform_t* waveform, unsigned int argc,
                         char* argv[], void* arg __attribute__((unused)))
@@ -94,6 +95,10 @@ static void packet_rx(struct waveform_t* waveform,
 
    waveform_send_data_packet(waveform, null_samples,
                              get_packet_len(packet), SPEAKER_DATA);
+
+   waveform_meter_set_float_value(waveform, "junk-snr", ctx->snr);
+   waveform_meters_send(waveform);
+   ctx->snr = (ctx->snr + 1) % 1024;
 }
 
 static void packet_tx(struct waveform_t* waveform,
@@ -168,6 +173,7 @@ int main(int argc, char** argv)
    struct junk_context ctx = {0};
 
    inet_aton("10.0.3.34", &addr.sin_addr);
+   //   inet_aton("10.0.3.50", &addr.sin_addr);
 
    pthread_mutex_init(&ctx.rx_phase_lock, NULL);
    pthread_mutex_init(&ctx.tx_phase_lock, NULL);
