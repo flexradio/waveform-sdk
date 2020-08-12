@@ -100,6 +100,7 @@ void waveform_register_meter(struct waveform_t* wf, const char* name, float min,
    new_entry->min = min;
    new_entry->max = max;
    new_entry->unit = unit;
+   new_entry->value = -1;
    LL_APPEND(wf->meter_head, new_entry);
 }
 
