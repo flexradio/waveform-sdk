@@ -25,7 +25,7 @@
 #define STREAM_BITS_OUT 0x00000000u
 #define STREAM_BITS_METER 0x00000008u
 #define STREAM_BITS_WAVEFORM 0x00000001u
-#define METER_STREAM_ID 0x00000088u
+#define METER_STREAM_ID 0x88000000u
 //#define METER_CLASS_ID          ((0x02804c53LLU << 32u) | FLEX_OUI)
 //#define AUDIO_CLASS_ID          ((0xe3034c53LLU << 32u) | FLEX_OUI)
 #define METER_CLASS_ID ((0x534c8002LLU << 32u) | FLEX_OUI)
@@ -62,8 +62,8 @@ struct waveform_vita_packet {
       uint8_t raw_payload[1440];
       float if_samples[360];
       struct {
-         uint16_t id;
          uint16_t value;
+         uint16_t id;
       } meter[360];
    };
 };
