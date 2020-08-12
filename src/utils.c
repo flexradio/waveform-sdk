@@ -23,64 +23,74 @@
  *
  */
 
-#include <string.h>
-#include <stdio.h>
+#include <assert.h>
+#include <ctype.h>
 #include <math.h>
 #include <stdarg.h>
-#include <assert.h>
+#include <stdio.h>
 #include <stdlib.h>
-#include <ctype.h>
+#include <string.h>
 
 #include <sds.h>
 
 #include "utils.h"
 
-void output(const char *fmt,...)
+void output(const char* fmt, ...)
 {
-    va_list args;
+   va_list args;
 
-    va_start(args, fmt);
-    vprintf(fmt, args);
-    fflush(stdout);
-    va_end(args);
+   va_start(args, fmt);
+   vprintf(fmt, args);
+   fflush(stdout);
+   va_end(args);
 }
 
 struct kwarg {
-    char *key;
-    char *value;
-    struct kwarg *next;
+   char* key;
+   char* value;
+   struct kwarg* next;
 };
 
-static void kwarg_add(struct kwarg **args, char *token)
+static void kwarg_add(struct kwarg** args, char* token)
 {
-    assert(token != NULL);
+   assert(token != NULL);
 
-    struct kwarg *current_arg;
-    if (*args == NULL) {
-        current_arg = *args = (struct kwarg *) malloc(sizeof(struct kwarg));
-    } else {
-        for (current_arg = *args; current_arg->next != NULL; current_arg = current_arg->next);
-        current_arg->next = (struct kwarg *) malloc(sizeof(struct kwarg));
-        current_arg = current_arg->next;
-    }
+   struct kwarg* current_arg;
+   if (*args == NULL)
+   {
+      current_arg = *args =
+            (struct kwarg*) malloc(sizeof(struct kwarg));
+   }
+   else
+   {
+      for (current_arg = *args; current_arg->next != NULL;
+           current_arg = current_arg->next)
+         ;
+      current_arg->next =
+            (struct kwarg*) malloc(sizeof(struct kwarg));
+      current_arg = current_arg->next;
+   }
 
-    current_arg->next = NULL;
-    current_arg->value = current_arg->key = token;
-    strsep(&current_arg->value, "=");
-    if (current_arg->value == NULL) {
-        current_arg->value = "";
-    }
+   current_arg->next = NULL;
+   current_arg->value = current_arg->key = token;
+   strsep(&current_arg->value, "=");
+   if (current_arg->value == NULL)
+   {
+      current_arg->value = "";
+   }
 }
 
 // XXX Fix me?
-void kwargs_destroy(struct kwarg **args)
+void kwargs_destroy(struct kwarg** args)
 {
-    struct kwarg *current_arg, *next_arg;
-    for (current_arg = *args, next_arg = (*args)->next; next_arg != NULL; current_arg = next_arg, next_arg = current_arg->next) {
-        free(current_arg);
-    }
-    free(current_arg);
-    *args = NULL;
+   struct kwarg *current_arg, *next_arg;
+   for (current_arg = *args, next_arg = (*args)->next; next_arg != NULL;
+        current_arg = next_arg, next_arg = current_arg->next)
+   {
+      free(current_arg);
+   }
+   free(current_arg);
+   *args = NULL;
 }
 
 //char *find_kwarg(struct kwarg *args, char *key)
@@ -97,119 +107,134 @@ void kwargs_destroy(struct kwarg **args)
 //    return NULL;
 //}
 
-sds find_kwarg(int argc, sds *argv, sds key)
+sds find_kwarg(int argc, sds* argv, sds key)
 {
-    for(int i = 0; i < argc; ++i) {
-        int count;
+   for (int i = 0; i < argc; ++i)
+   {
+      int count;
 
-        sds *kvp = sdssplitlen(argv[i], sdslen(argv[i]), "=", 1, &count);
-        if (count != 2) {
-            sdsfreesplitres(kvp, count);
-            continue;
-        }
+      sds* kvp =
+            sdssplitlen(argv[i], sdslen(argv[i]), "=", 1, &count);
+      if (count != 2)
+      {
+         sdsfreesplitres(kvp, count);
+         continue;
+      }
 
-        if (strcmp(kvp[0], key) == 0) {
-            sds value = kvp[1];
-            kvp[1] = NULL;
-            sdsfreesplitres(kvp, count);
-            return value;
-        }
-    }
+      if (strcmp(kvp[0], key) == 0)
+      {
+         sds value = kvp[1];
+         kvp[1] = NULL;
+         sdsfreesplitres(kvp, count);
+         return value;
+      }
+   }
 
-    return NULL;
+   return NULL;
 }
 
-struct kwarg *parse_kwargs(char **argv, int argc, int start)
+struct kwarg* parse_kwargs(char** argv, int argc, int start)
 {
-    struct kwarg *kwargs = NULL;
+   struct kwarg* kwargs = NULL;
 
-    for (int i = start; i < argc; ++i)
-        kwarg_add(&kwargs, argv[i]);
+   for (int i = start; i < argc; ++i)
+      kwarg_add(&kwargs, argv[i]);
 
-    return kwargs;
+   return kwargs;
 }
 
-static char *trim(char *string)
+static char* trim(char* string)
 {
-    char *end;
+   char* end;
 
-    for (end = string + strlen(string) - 1; end > string && isspace((unsigned char) *end); end--);
-    end[1] = '\0';
+   for (end = string + strlen(string) - 1;
+        end > string && isspace((unsigned char) *end); end--)
+      ;
+   end[1] = '\0';
 
-    return string;
+   return string;
 }
 
-struct waveform_args_t *parse_args(char *line) {
-    struct waveform_args_t *args = (struct waveform_args_t *) calloc(1, sizeof(struct waveform_args_t));
-    if (!args) {
-        return NULL;
-    }
+struct waveform_args_t* parse_args(char* line)
+{
+   struct waveform_args_t* args = (struct waveform_args_t*) calloc(
+         1, sizeof(struct waveform_args_t));
+   if (!args)
+   {
+      return NULL;
+   }
 
-    trim(line);
-    args->line = strdup(line);
+   trim(line);
+   args->line = strdup(line);
 
-    // XXX This needs optimization and tuning
-    // XXX This could all be done in one loop through.
-    int total_args = parse_argv(line, args->argv, MAX_ARGS);
-    for (int i = 0; i < MAX_ARGS; ++i) {
-        if ( strchr(args->argv[i], '=') ) {
-            args->argc = i;
+   // XXX This needs optimization and tuning
+   // XXX This could all be done in one loop through.
+   int total_args = parse_argv(line, args->argv, MAX_ARGS);
+   for (int i = 0; i < MAX_ARGS; ++i)
+   {
+      if (strchr(args->argv[i], '='))
+      {
+         args->argc = i;
+         break;
+      }
+   }
+   args->kwargs = parse_kwargs(args->argv, total_args, args->argc);
+
+   return args;
+}
+
+void free_args(struct waveform_args_t* args)
+{
+   kwargs_destroy(&args->kwargs);
+   free(args->line);
+   free(args);
+}
+
+int parse_argv(char* string, char** argv, int max_args)
+{
+   char** argptr;
+   char* argsstring;
+   int argc = 1;
+
+   trim(string);
+
+   argsstring = string;
+   for (argptr = argv; (*argptr = strsep(&argsstring, " \t")) != NULL;
+        ++argc)
+      if (**argptr != '\0')
+         if (++argptr >= &argv[max_args])
             break;
-        }
-    }
-    args->kwargs = parse_kwargs(args->argv, total_args, args->argc);
 
-    return args;
+   return (argc - 1);
 }
 
-void free_args(struct waveform_args_t *args)
+inline short float_to_fixed(double input, unsigned char fractional_bits)
 {
-    kwargs_destroy(&args->kwargs);
-    free(args->line);
-    free(args);
+   return (short) (round(input * (1u << fractional_bits)));
 }
 
-int parse_argv(char *string, char **argv, int max_args)
+int dispatch_from_table(char* message,
+                        const struct dispatch_entry* dispatch_table)
 {
-	char **argptr;
-	char *argsstring;
-	int argc = 1;
+   char* argv[MAX_ARGS];
+   int argc;
+   int i;
 
-	trim(string);
+   assert(message != NULL);
+   assert(dispatch_table != NULL);
 
-	argsstring = string;
-	for(argptr = argv; (*argptr = strsep(&argsstring, " \t")) != NULL; ++argc)
-		if (**argptr != '\0')
-			if (++argptr >= &argv[max_args])
-				break;
+   argc = parse_argv(message, argv, MAX_ARGS);
+   if (argc < 1)
+      return -1;
 
-	return(argc - 1);
-}
+   for (i = 0; strlen(dispatch_table[i].name) > 0; ++i)
+   {
+      if (strncmp(dispatch_table[i].name, argv[0], 256) == 0)
+      {
+         assert(dispatch_table[i].handler != NULL);
+         return (dispatch_table[i].handler)(argv, argc);
+      }
+   }
 
-short float_to_fixed(double input, unsigned char fractional_bits)
-{
-    return (short)(round(input * (1u << fractional_bits)));
-}
-
-int dispatch_from_table(char *message, const struct dispatch_entry *dispatch_table)
-{
-    char *argv[MAX_ARGS];
-    int argc;
-    int i;
-
-    assert(message != NULL);
-    assert(dispatch_table != NULL);
-
-    argc = parse_argv(message, argv, MAX_ARGS);
-    if (argc < 1)
-        return -1;
-
-    for (i = 0; strlen(dispatch_table[i].name) > 0; ++i) {
-        if (strncmp(dispatch_table[i].name, argv[0], 256) == 0) {
-            assert(dispatch_table[i].handler != NULL);
-            return (dispatch_table[i].handler)(argv, argc);
-        }
-    }
-
-    return -1;
+   return -1;
 }
