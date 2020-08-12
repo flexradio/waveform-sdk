@@ -63,12 +63,12 @@ static void vita_read_cb(evutil_socket_t socket, short what, void* ctx)
       *word = ntohl(*word);
    }
 
-   unsigned long payload_length = (packet.length * sizeof(uint32_t)) - VITA_PACKET_HEADER_SIZE;
+   unsigned long payload_length = (packet.length * sizeof(uint32_t)) - VITA_PACKET_HEADER_SIZE(&packet);
 
-   if (payload_length != bytes_received - VITA_PACKET_HEADER_SIZE)
+   if (payload_length != bytes_received - VITA_PACKET_HEADER_SIZE(&packet))
    {
       fprintf(stderr, "VITA header size doesn't match bytes read from network (%lu != %ld - %lu) -- %lu\n",
-              payload_length, bytes_received, VITA_PACKET_HEADER_SIZE, sizeof(struct waveform_vita_packet));
+              payload_length, bytes_received, VITA_PACKET_HEADER_SIZE(&packet), sizeof(struct waveform_vita_packet));
       return;
    }
 
@@ -262,15 +262,16 @@ static void vita_send_packet_cb(evutil_socket_t socket, short what, void* arg)
       return;
    }
 
-   ssize_t bytes_sent;
-   size_t packet_len = VITA_PACKET_HEADER_SIZE + (packet->length * sizeof(float));
-   packet->length += (VITA_PACKET_HEADER_SIZE / 4);
-   assert(packet_len % 4 == 0);
-
    //  XXX Lots of magic numbers here!
    packet->timestamp_type = 0x50U | (packet->timestamp_type & 0x0FU);
    packet->timestamp_int = time(NULL);
    packet->timestamp_frac = 0;
+
+   ssize_t bytes_sent;
+   size_t packet_len = VITA_PACKET_HEADER_SIZE(packet) + (packet->length * sizeof(float));
+   packet->length += (VITA_PACKET_HEADER_SIZE(packet) / 4);
+   assert(packet_len % 4 == 0);
+
 
    //    if (packet->class_id == AUDIO_CLASS_ID) {
    //        packet->timestamp_type = vita->data_sequence++;
@@ -349,7 +350,7 @@ void vita_send_data_packet(struct vita* vita, float* samples, size_t num_samples
 
 inline uint16_t get_packet_len(struct waveform_vita_packet* packet)
 {
-   return packet->length - (VITA_PACKET_HEADER_SIZE / sizeof(uint32_t));
+   return packet->length - (VITA_PACKET_HEADER_SIZE(packet) / sizeof(uint32_t));
 }
 
 inline float* get_packet_data(struct waveform_vita_packet* packet)

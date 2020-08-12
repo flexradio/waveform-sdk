@@ -67,11 +67,30 @@ struct waveform_vita_packet {
       } meter[360];
    };
 };
+
+struct waveform_vita_packet_sans_ts {
+   uint16_t length;
+   uint8_t timestamp_type;
+   uint8_t packet_type;
+   uint32_t stream_id;
+   uint64_t class_id;
+   union
+   {
+      uint8_t raw_payload[1440];
+      struct {
+         uint16_t value;
+         uint16_t id;
+      } meter[360];
+   };
+};
 #pragma pack(pop)
 
-#define VITA_PACKET_HEADER_SIZE           \
-   (sizeof(struct waveform_vita_packet) - \
-    sizeof(((struct waveform_vita_packet) {0}).raw_payload))
+#define VITA_PACKET_HEADER_SIZE_FOR_TYPE(type) \
+   (sizeof(struct type) -                      \
+    sizeof(((struct type) {0}).raw_payload))
+
+#define VITA_PACKET_HEADER_SIZE(packet) \
+   (((packet)->timestamp_type & 0xf0u) != 0 ? VITA_PACKET_HEADER_SIZE_FOR_TYPE(waveform_vita_packet) : VITA_PACKET_HEADER_SIZE_FOR_TYPE(waveform_vita_packet_sans_ts))
 
 struct vita {
    int sock;

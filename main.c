@@ -96,9 +96,9 @@ static void packet_rx(struct waveform_t* waveform,
    waveform_send_data_packet(waveform, null_samples,
                              get_packet_len(packet), SPEAKER_DATA);
 
-   waveform_meter_set_float_value(waveform, "junk-snr", ctx->snr);
-   waveform_meters_send(waveform);
-   ctx->snr = (ctx->snr + 1) % 1024;
+   //   waveform_meter_set_float_value(waveform, "junk-snr", ctx->snr);
+   //   waveform_meters_send(waveform);
+   //   ctx->snr = (ctx->snr + 1) % 1024;
 }
 
 static void packet_tx(struct waveform_t* waveform,
