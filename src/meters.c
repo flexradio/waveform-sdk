@@ -157,7 +157,7 @@ int waveform_meters_send(struct waveform_t* wf)
 {
    struct waveform_meter* meter;
    int i = 0;
-   struct waveform_vita_packet* packet = calloc(1, sizeof(*packet));
+   struct waveform_vita_packet_sans_ts* packet = calloc(1, sizeof(*packet));
 
    packet->packet_type = VITA_PACKET_TYPE_EXT_DATA_WITH_STREAM_ID;
    packet->stream_id = METER_STREAM_ID;
@@ -166,7 +166,7 @@ int waveform_meters_send(struct waveform_t* wf)
    //  XXX the value could get corrupted.  It's not greatly important, but it will screw up the sequence.  It should
    //  XXX probably be done on the IO thread, but we lose the reference to the struct vita when we call the
    //  XXX event callback.
-   packet->timestamp_type = wf->vita.meter_sequence++;
+   packet->timestamp_type = wf->vita.meter_sequence++ & 0x0fu;
 
    LL_FOREACH(wf->meter_head, meter)
    {
@@ -187,6 +187,6 @@ int waveform_meters_send(struct waveform_t* wf)
 
    packet->length = i;
 
-   vita_send_packet(&wf->vita, packet);
+   vita_send_packet(&wf->vita, (struct waveform_vita_packet*) packet);
    return 0;
 }

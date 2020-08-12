@@ -61,10 +61,6 @@ struct waveform_vita_packet {
    {
       uint8_t raw_payload[1440];
       float if_samples[360];
-      struct {
-         uint16_t value;
-         uint16_t id;
-      } meter[360];
    };
 };
 
@@ -76,11 +72,11 @@ struct waveform_vita_packet_sans_ts {
    uint64_t class_id;
    union
    {
-      uint8_t raw_payload[1440];
+      uint8_t raw_payload[1452];
       struct {
          uint16_t value;
          uint16_t id;
-      } meter[360];
+      } meter[363];
    };
 };
 #pragma pack(pop)
