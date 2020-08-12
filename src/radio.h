@@ -7,6 +7,8 @@
 
 #include <pthread_workqueue.h>
 
+#include "waveform_api.h"
+
 struct response_queue_entry {
    struct waveform_t* wf;
    unsigned int sequence;

@@ -1,10 +1,10 @@
 set(WAVEFORM_SRCS
         utils.c
-        waveform.c radio.c vita.c vita.h)
+        waveform.c radio.c vita.c vita.h meters.c)
 
 set(WAVEFORM_HDRS
         utils.h
-        )
+        meters.h)
 
 set(EVENT__LIBRARY_TYPE "STATIC" CACHE STRING "")
 set(EVENT__DISABLE_OPENSSL ON CACHE BOOL "")
