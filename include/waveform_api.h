@@ -40,18 +40,18 @@ struct waveform_vita_packet;
 /// @brief Enumeration for waveform meter units
 enum waveform_units
 {
-    DB,
-    DBM,
-    DBFS,
-    VOLTS,
-    AMPS,
-    RPM,
-    TEMP_F,
-    TEMP_C,
-    SWR,
-    WATTS,
-    PERCENT,
-    NONE
+   DB,
+   DBM,
+   DBFS,
+   VOLTS,
+   AMPS,
+   RPM,
+   TEMP_F,
+   TEMP_C,
+   SWR,
+   WATTS,
+   PERCENT,
+   NONE
 };
 
 enum waveform_state

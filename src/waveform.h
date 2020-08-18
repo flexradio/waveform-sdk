@@ -1,17 +1,52 @@
-//
-//
-// Created by Annaliese McDermond on 6/29/20.
-//
+// SPDX-License-Identifier: LGPL-3.0-or-later
+/// @file waveform.h
+/// @brief Functions to manage a waveform's lifecycle
+/// @authors Annaliese McDermond <anna@flex-radio.com>
+///
+/// @copyright Copyright (c) 2020 FlexRadio Systems
+///
+/// This program is free software: you can redistribute it and/or modify
+/// it under the terms of the GNU Lesser General Public License as published by
+/// the Free Software Foundation, version 3.
+///
+/// This program is distributed in the hope that it will be useful, but
+/// WITHOUT ANY WARRANTY; without even the implied warranty of
+/// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+/// Lesser General Public License for more details.
+///
+/// You should have received a copy of the GNU Lesser General Public License
+/// along with this program. If not, see <http://www.gnu.org/licenses/>.
+///
 
 #ifndef WAVEFORM_WAVEFORM_H
 #define WAVEFORM_WAVEFORM_H
 
+// ****************************************
+// Third Party Library Includes
+// ****************************************
 #include <sds.h>
 
-#include <waveform_api.h>
-
+// ****************************************
+// Project Includes
+// ****************************************
 #include "vita.h"
+#include "waveform_api.h"
 
+// ****************************************
+// Macros
+// ****************************************
+#define radio_waveforms_for_each(radio, pos)                \
+   for (struct waveform_t * (pos) = wf_list; (pos) != NULL; \
+        (pos) = (pos)->next)                                \
+      if ((pos)->radio == (radio))
+
+#define waveform_cb_for_each(wf, cb_list, pos)                          \
+   for (struct waveform_cb_list * (pos) = (wf)->cb_list; (pos) != NULL; \
+        (pos) = (pos)->next)
+
+// ****************************************
+// Structs, Enums, typedefs
+// ****************************************
 struct waveform_cb_list {
    sds name;
    union
@@ -63,15 +98,9 @@ struct waveform_t {
    struct waveform_t* next;
 };
 
+// ****************************************
+// Global Variables
+// ****************************************
 extern struct waveform_t* wf_list;
-
-#define radio_waveforms_for_each(radio, pos)                \
-   for (struct waveform_t * (pos) = wf_list; (pos) != NULL; \
-        (pos) = (pos)->next)                                \
-      if ((pos)->radio == (radio))
-
-#define waveform_cb_for_each(wf, cb_list, pos)                          \
-   for (struct waveform_cb_list * (pos) = (wf)->cb_list; (pos) != NULL; \
-        (pos) = (pos)->next)
 
 #endif//WAVEFORM_WAVEFORM_H
