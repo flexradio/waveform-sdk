@@ -25,7 +25,7 @@
 #define STREAM_BITS_OUT 0x00000000u
 #define STREAM_BITS_METER 0x00000008u
 #define STREAM_BITS_WAVEFORM 0x00000001u
-#define METER_STREAM_ID 0x00000088u
+#define METER_STREAM_ID 0x88000000u
 //#define METER_CLASS_ID          ((0x02804c53LLU << 32u) | FLEX_OUI)
 //#define AUDIO_CLASS_ID          ((0xe3034c53LLU << 32u) | FLEX_OUI)
 #define METER_CLASS_ID ((0x534c8002LLU << 32u) | FLEX_OUI)
@@ -61,17 +61,32 @@ struct waveform_vita_packet {
    {
       uint8_t raw_payload[1440];
       float if_samples[360];
+   };
+};
+
+struct waveform_vita_packet_sans_ts {
+   uint16_t length;
+   uint8_t timestamp_type;
+   uint8_t packet_type;
+   uint32_t stream_id;
+   uint64_t class_id;
+   union
+   {
+      uint8_t raw_payload[1452];
       struct {
-         uint16_t id;
          uint16_t value;
-      } meter[360];
+         uint16_t id;
+      } meter[363];
    };
 };
 #pragma pack(pop)
 
-#define VITA_PACKET_HEADER_SIZE           \
-   (sizeof(struct waveform_vita_packet) - \
-    sizeof(((struct waveform_vita_packet) {0}).raw_payload))
+#define VITA_PACKET_HEADER_SIZE_FOR_TYPE(type) \
+   (sizeof(struct type) -                      \
+    sizeof(((struct type) {0}).raw_payload))
+
+#define VITA_PACKET_HEADER_SIZE(packet) \
+   (((packet)->timestamp_type & 0xf0u) != 0 ? VITA_PACKET_HEADER_SIZE_FOR_TYPE(waveform_vita_packet) : VITA_PACKET_HEADER_SIZE_FOR_TYPE(waveform_vita_packet_sans_ts))
 
 struct vita {
    int sock;
