@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
 /// @file waveform.c
-/// @brief Initialization and other master functions
+/// @brief Functions to manage a waveform's lifecycle
 /// @authors Annaliese McDermond <anna@flex-radio.com>
 ///
 /// @copyright Copyright (c) 2020 FlexRadio Systems
@@ -18,22 +18,39 @@
 /// along with this program. If not, see <http://www.gnu.org/licenses/>.
 ///
 
+// ****************************************
+// System Includes
+// ****************************************
 #include <stdarg.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+// ****************************************
+// Third Party Library Includes
+// ****************************************
 #include <event2/bufferevent.h>
 
+// ****************************************
+// Project Includes
+// ****************************************
 #include "radio.h"
 #include "utils.h"
 #include "waveform.h"
 
+// ****************************************
+// Macros
+// ****************************************
 // XXX I should probably be defined somewhere common.
 #define MAX_STRING_SIZE 255
 
+// ****************************************
+// Global Variables
+// ****************************************
 struct waveform_t* wf_list;
 
+// ****************************************
+// Public API Functions
+// ****************************************
 struct waveform_t* waveform_create(struct radio_t* radio, char* name,
                                    char* short_name, char* underlying_mode,
                                    char* version)

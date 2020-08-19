@@ -1,9 +1,29 @@
-//
-// Created by Annaliese McDermond on 6/25/20.
-//
+// SPDX-License-Identifier: LGPL-3.0-or-later
+/// @file radio.c
+/// @brief Implementation of radio communciations functionality
+/// @authors Annaliese McDermond <anna@flex-radio.com>
+///
+/// @copyright Copyright (c) 2020 FlexRadio Systems
+///
+/// This program is free software: you can redistribute it and/or modify
+/// it under the terms of the GNU Lesser General Public License as published by
+/// the Free Software Foundation, version 3.
+///
+/// This program is distributed in the hope that it will be useful, but
+/// WITHOUT ANY WARRANTY; without even the implied warranty of
+/// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+/// Lesser General Public License for more details.
+///
+/// You should have received a copy of the GNU Lesser General Public License
+/// along with this program. If not, see <http://www.gnu.org/licenses/>.
+///
 
+//  I have to come first.  The almighty template cannot be obeyed.
 #define _GNU_SOURCE
 
+// ****************************************
+// System Includes
+// ****************************************
 #include <arpa/inet.h>
 #include <assert.h>
 #include <limits.h>
@@ -13,6 +33,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+// ****************************************
+// Third Party Library Includes
+// ****************************************
 #include <event2/buffer.h>
 #include <event2/bufferevent.h>
 #include <event2/event.h>
@@ -23,10 +46,58 @@
 #include <sds.h>
 #include <utlist.h>
 
+// ****************************************
+// Project Includes
+// ****************************************
+#include "meters.h"
 #include "radio.h"
 #include "utils.h"
 #include "waveform.h"
 
+// ****************************************
+// Structs, Enums, typedefs
+// ****************************************
+
+// These are descriptors for passing parameters to the
+// functions that run on the work queue.  We only get to
+// pass one variable to the work queue function, so we have
+// to marshall a bunch of variables in a struct.  These are
+// created and passed to the callbacks for responses, status
+// message callbacks, and command callbacks.
+struct resp_cb_wq_desc {
+   unsigned int code;
+   sds message;
+   struct response_queue_entry* rq_entry;
+};
+
+struct status_cb_wq_desc {
+   struct waveform_t* wf;
+   sds message;
+   struct waveform_cb_list* cb;
+};
+
+struct cmd_cb_wq_desc {
+   int sequence;
+   sds message;
+   struct waveform_t* wf;
+   struct waveform_cb_list* cb;
+};
+
+// ****************************************
+// Static Functions
+// ****************************************
+
+/// @brief Add a callback to the queue of responses
+/// @details When a command is issued for which we would like a response, we have
+///          to track this command such that when the response comes in later that
+///          we can call the callback requested by the user.  This function adds
+///          the callback and the sequence number to a linked list of response
+///          queue entries to be looked up when we recieve a command response.
+/// @param waveform A reference to the waveform
+/// @param cb A pointer to the function that we will call when the response to this
+///           command arrives.
+/// @param ctx A pointer to a user-defined context structure that will be provided to the
+///            callback function when the command response arrives.
 static void add_sequence_to_response_queue(struct waveform_t* waveform,
                                            waveform_response_cb_t cb, void* ctx)
 {
@@ -41,12 +112,12 @@ static void add_sequence_to_response_queue(struct waveform_t* waveform,
    LL_APPEND(waveform->radio->rq_head, new_entry);
 }
 
-struct resp_cb_wq_desc {
-   unsigned int code;
-   sds message;
-   struct response_queue_entry* rq_entry;
-};
-
+/// @brief Work queue function to execute callback for a command response
+/// @details When we receive a response to a command, we need to execute the user's callback code
+///          in the work queue so that it will run in a different thread and not gum up the works of
+///          the main command processing thread.  This is the work queue function to execute the
+///          callbacks themselves.
+/// @param arg The work queue descriptor for a command callback.
 static void rq_call_cb(void* arg)
 {
    struct resp_cb_wq_desc* desc = (struct resp_cb_wq_desc*) arg;
@@ -58,6 +129,18 @@ static void rq_call_cb(void* arg)
    free(desc);
 }
 
+/// @brief Runs any callbacks for a command and removes entries from the command queue
+/// @details When a command for which we would like a response is executed, we must wait for the
+///          response to be delivered back from the radio.  This function is called when we recieve
+///          the response and need to have any callbacks called and the command queue entry removed
+///          from the linked list.
+/// @param radio A reference to the radio receiving the command
+/// @param sequence The sequence number that we assigned to the command when we executed it.  This will be
+///                 returned back to us in the response to identify it.
+/// @param code The response code to the comamand returned from the radio.  This is inevitably 0 for success or some
+///             other arbitrary integer value for failure.
+/// @param message A text response for the command.  This may be passed back for either success or failure.  For example
+///                the meter creation command returns the meter index number in this field.
 static void complete_response_entry(struct radio_t* radio,
                                     unsigned int sequence, unsigned int code,
                                     sds message)
@@ -80,6 +163,8 @@ static void complete_response_entry(struct radio_t* radio,
    LL_DELETE(radio->rq_head, current_entry);
 }
 
+/// @brief Destroys the command response queue
+/// @param waveform A reference to the waveform where the response queue lives.
 static void destroy_response_queue(struct waveform_t* waveform)
 {
    struct response_queue_entry *current_entry, *tmp_entry;
@@ -91,6 +176,13 @@ static void destroy_response_queue(struct waveform_t* waveform)
    }
 }
 
+/// @brief Process changes in the interlock state
+/// @details when the radio is about to enter transmit or recieve state, the interlock will change state and
+///          we will be notified of that fact in a status message.  This function handles those state notifications
+///          and passes that notifications to any waveforms that may be interested by way of a callback registered
+///          by that waveform.
+/// @param radio The radio recieving the state change
+/// @param state A string from the radio representing the current state of the interlock.
 static void interlock_state_change(struct radio_t* radio, sds state)
 {
    enum waveform_state cb_state;
@@ -119,6 +211,14 @@ static void interlock_state_change(struct radio_t* radio, sds state)
    }
 }
 
+/// @brief Process mode changes from the radio
+/// @details When the radio changes mode, we are notified of that fact by a status message on the API.
+///          We need to detect that new mode and see if one of the waveforms we are managing handles that
+///          mode.  We also check to see if the waveform is already processing a slice and lock that out
+///          as the current API is not specified to handle multiple slices using a single waveform.
+/// @param radio A reference to the radio receiving the status message
+/// @param mode The new mode that the slice is moving to
+/// @param slice The slice changing mode
 static void mode_change(struct radio_t* radio, sds mode, char slice)
 {
    fprintf(stderr, "Got a request for mode %s on slice %d\n", mode, slice);
@@ -157,12 +257,11 @@ static void mode_change(struct radio_t* radio, sds mode, char slice)
    }
 }
 
-struct status_cb_wq_desc {
-   struct waveform_t* wf;
-   sds message;
-   struct waveform_cb_list* cb;
-};
-
+/// @brief Work queue function to execute callback for a status message
+/// @details When a status message is recieved, user-defined callbacks are executed for that message.  These
+///          callbacks are registered with waveform_register_status_cb.  These callbacks are executed in the normal
+///          priority work queue so that we do not stall the main command processing thread.
+/// @param arg The work queue descriptor for a status callback.
 static void radio_call_status_cb(void* arg)
 {
    int argc;
@@ -183,6 +282,13 @@ static void radio_call_status_cb(void* arg)
    free(desc);
 }
 
+/// @brief Handle a status message received from the radio
+/// @details When we receive a message from the radio prefixed with 'S', this is a status message.  This function
+///          handles processing of that message including seeing if it's a status for which we do internal handling,
+///          such as slice mode changes or interlock state changes.  We also execute any callbacks that the user may have
+///          registered for that message.
+/// @param radio A reference to the radio receiving the status message
+/// @param message the unprocessed message from the radio API
 static void process_status_message(struct radio_t* radio, sds message)
 {
    int argc;
@@ -247,14 +353,12 @@ static void process_status_message(struct radio_t* radio, sds message)
    sdsfreesplitres(argv, argc);
 }
 
-struct cmd_cb_wq_desc {
-   int sequence;
-   sds message;
-   struct waveform_t* wf;
-
-   struct waveform_cb_list* cb;
-};
-
+/// @brief Work queue function to execute callback for a waveform command message
+/// @details When a waveform comamnd is recieved, user-defined callbacks are executed for that message.  These
+///          callbacks are registered with waveform_register_command_cb.  These callbacks are executed in the normal
+///          priority work queue so that we do not stall the main command processing thread.  We also send and appropriate
+///          response to the radio based on the return value from the user callback.
+/// @param arg The work queue descriptor for a command callback.
 static void radio_call_command_cb(void* arg)
 {
    int argc;
@@ -288,6 +392,13 @@ static void radio_call_command_cb(void* arg)
    free(desc);
 }
 
+/// @brief Handle a waveform command received from the radio
+/// @details When we receive a message from the radio prefixed with 'C', this is a waveform command.  This function
+///          handles processing of that command by executing any user registered callbacks for that command.
+/// @param radio A reference to the radio receiving the status message
+/// @param sequence The sequence number for the command required to be executed.  We have to have this for when the
+///                 callback sends a response.
+/// @param message the unprocessed command string from the radio API
 static void process_waveform_command(struct radio_t* radio, int sequence,
                                      sds message)
 {
@@ -344,11 +455,19 @@ static void process_waveform_command(struct radio_t* radio, int sequence,
    sdsfreesplitres(argv, argc);
 }
 
+/// @brief Process a line from the radio api
+/// @details When the waveform receives a line of text from the radio, we process this.  We acertain the type of the message
+///          from the first character and then dispatch it to the appropriate handler function.  We also do basic parsing here
+///          like trying to figure out sequence numbers and such.
+/// @param radio A reference to the radio receiving the line
+/// @param line A string containing the line received from the radio.
 static void radio_process_line(struct radio_t* radio, sds line)
 {
-   char *message, *endptr, *response_message;
+   char* endptr;
    int ret;
-   unsigned long code, handle, sequence;
+   unsigned long code;
+   unsigned long handle;
+   unsigned long sequence;
    unsigned int api_version[4];
    int count;
 
@@ -483,14 +602,14 @@ static void radio_process_line(struct radio_t* radio, sds line)
          if ((errno == ERANGE && sequence == ULONG_MAX) ||
              (errno != 0 && sequence == 0))
          {
-            output("Error finding command sequence: %s\n",
-                   strerror(errno));
+            fprintf(stderr, "Error finding command sequence: %s\n",
+                    strerror(errno));
             break;
          }
 
          if (tokens[0] == endptr)
          {
-            output("Cannot find command sequence in: %s\n", line);
+            fprintf(stderr, "Cannot find command sequence in: %s\n", line);
             break;
          }
 
@@ -505,55 +624,10 @@ static void radio_process_line(struct radio_t* radio, sds line)
    sdsfreesplitres(tokens, count);
 }
 
-long waveform_radio_send_api_command_cb_va(struct waveform_t* wf,
-                                           waveform_response_cb_t cb, void* arg,
-                                           char* command, va_list ap)
-{
-   int cmdlen;
-   char* message_format;
-   va_list aq;
-
-   struct evbuffer* output = bufferevent_get_output(wf->radio->bev);
-
-   cmdlen = asprintf(&message_format, "C%ld|%s\n", wf->radio->sequence,
-                     command);
-   if (cmdlen < 0)
-   {
-      return -1;
-   }
-
-   fprintf(stderr, "Tx: ");
-   va_copy(aq, ap);
-   vfprintf(stderr, message_format, aq);
-   va_end(aq);
-
-   evbuffer_add_vprintf(output, message_format, ap);
-
-   free(message_format);
-
-   if (cb)
-   {
-      add_sequence_to_response_queue(wf, cb, arg);
-   }
-
-   return ++wf->radio->sequence;
-}
-
-static inline long waveform_radio_send_api_command_cb(struct waveform_t* wf,
-                                                      waveform_response_cb_t cb,
-                                                      void* arg, char* command,
-                                                      ...)
-{
-   va_list ap;
-   long ret;
-
-   va_start(ap, command);
-   ret = waveform_radio_send_api_command_cb_va(wf, cb, arg, command, ap);
-   va_end(ap);
-
-   return ret;
-}
-
+/// @brief Initialize radio after connection established
+/// @details Once we connect the API socket to the radio we need to execute certain functions to prepare for running the waveform.
+///          These include registering the waveforms and modes that we handle, properly registering any meters, setting filter widths, etc.
+/// @param radio A reference to the radio that has connected
 static void radio_init(struct radio_t* radio)
 {
    int sub = 0;
@@ -562,24 +636,24 @@ static void radio_init(struct radio_t* radio)
    {
       if (sub == 0)
       {
-         waveform_radio_send_api_command_cb(cur_wf, NULL, NULL,
-                                            "sub slice all");
+         waveform_send_api_command_cb(cur_wf, NULL, NULL,
+                                      "sub slice all");
          sub = 1;
       }
 
-      waveform_radio_send_api_command_cb(
+      waveform_send_api_command_cb(
             cur_wf, NULL, NULL,
             "waveform create name=%s mode=%s underlying_mode=%s version=%s",
             cur_wf->name, cur_wf->short_name,
             cur_wf->underlying_mode, cur_wf->version);
-      waveform_radio_send_api_command_cb(cur_wf, NULL, NULL,
-                                         "waveform set %s tx=1",
-                                         cur_wf->name);
-      waveform_radio_send_api_command_cb(
+      waveform_send_api_command_cb(cur_wf, NULL, NULL,
+                                   "waveform set %s tx=1",
+                                   cur_wf->name);
+      waveform_send_api_command_cb(
             cur_wf, NULL, NULL,
             "waveform set %s rx_filter depth=%d", cur_wf->name,
             cur_wf->rx_depth);
-      waveform_radio_send_api_command_cb(
+      waveform_send_api_command_cb(
             cur_wf, NULL, NULL,
             "waveform set %s tx_filter depth=%d", cur_wf->name,
             cur_wf->tx_depth);
@@ -588,6 +662,13 @@ static void radio_init(struct radio_t* radio)
    }
 }
 
+/// @brief Libevent callback for connection/disconnection events from the radio
+/// @details Libevent requires you to implement a callback that fires whenever the TCP connection has actually become connected, or when
+///          other significant lifecycle events happen on the connection.  Our implementation handles initialization of the radio when
+///          first connected, and should eventually handle disconnections more gracefully.  See libevent documentation for more details.
+/// @param bev Buffer event reference from libevent
+/// @param what What kind of event occurred
+/// @param ctx A reference to the radio structure for which this TCP connection serves as the API connection.
 static void radio_event_cb(struct bufferevent* bev __attribute__((unused)),
                            short what, void* ctx)
 {
@@ -614,6 +695,12 @@ static void radio_event_cb(struct bufferevent* bev __attribute__((unused)),
    }
 }
 
+/// @brief Callback called when the radio has some data
+/// @details When libevent detects that there is some data available from the API socket, it calls this callback to let us know.
+///          We then see if there is a line's worth of data there, and dispatch it to radio_process_line to be dealt with.  See
+///          libevent documentation for more details.
+/// @param bev A reference to the bufferevent for this event
+/// @param ctx A reference to the radio for which this event is being triggered
 static void radio_read_cb(struct bufferevent* bev, void* ctx)
 {
    struct radio_t* radio = (struct radio_t*) ctx;
@@ -632,6 +719,12 @@ static void radio_read_cb(struct bufferevent* bev, void* ctx)
    }
 }
 
+/// @brief Main radio event loop
+/// @details An event loop for the radio that opens a socket to communicate with the radio, sets up
+///          appropriate callbacks so that we can handle events and then executes event_base_dispatch
+///          which will run in an infinite loop until there is no more connection there.  See the libevent
+///          documentation for more details.
+/// @param arg The radio for which to run the event loop
 static void* radio_evt_loop(void* arg)
 {
    struct radio_t* radio = (struct radio_t*) arg;
@@ -680,6 +773,46 @@ eb_abort:
    return NULL;
 }
 
+// ****************************************
+// Global Functions
+// ****************************************
+long waveform_radio_send_api_command_cb_va(struct waveform_t* wf,
+                                           waveform_response_cb_t cb, void* arg,
+                                           char* command, va_list ap)
+{
+   int cmdlen;
+   char* message_format;
+   va_list aq;
+
+   struct evbuffer* output = bufferevent_get_output(wf->radio->bev);
+
+   cmdlen = asprintf(&message_format, "C%ld|%s\n", wf->radio->sequence,
+                     command);
+   if (cmdlen < 0)
+   {
+      return -1;
+   }
+
+   fprintf(stderr, "Tx: ");
+   va_copy(aq, ap);
+   vfprintf(stderr, message_format, aq);
+   va_end(aq);
+
+   evbuffer_add_vprintf(output, message_format, ap);
+
+   free(message_format);
+
+   if (cb)
+   {
+      add_sequence_to_response_queue(wf, cb, arg);
+   }
+
+   return ++wf->radio->sequence;
+}
+
+// ****************************************
+// Public API Functions
+// ****************************************
 struct radio_t* waveform_radio_create(struct sockaddr_in* addr)
 {
    struct radio_t* radio = calloc(1, sizeof(*radio));

@@ -1,7 +1,26 @@
-//
-// Created by Annaliese McDermond on 7/2/20.
-//
+// SPDX-License-Identifier: LGPL-3.0-or-later
+/// @file vita.c
+/// @brief Implementation of VITA packet processing
+/// @authors Annaliese McDermond <anna@flex-radio.com>
+///
+/// @copyright Copyright (c) 2020 FlexRadio Systems
+///
+/// This program is free software: you can redistribute it and/or modify
+/// it under the terms of the GNU Lesser General Public License as published by
+/// the Free Software Foundation, version 3.
+///
+/// This program is distributed in the hope that it will be useful, but
+/// WITHOUT ANY WARRANTY; without even the implied warranty of
+/// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+/// Lesser General Public License for more details.
+///
+/// You should have received a copy of the GNU Lesser General Public License
+/// along with this program. If not, see <http://www.gnu.org/licenses/>.
+///
 
+// ****************************************
+// System Includes
+// ****************************************
 #include <arpa/inet.h>
 #include <assert.h>
 #include <errno.h>
@@ -11,15 +30,22 @@
 #include <string.h>
 #include <unistd.h>
 
+// ****************************************
+// Third Party Library Includes
+// ****************************************
 #include <event2/event.h>
 
+// ****************************************
+// Project Includes
+// ****************************************
 #include "radio.h"
 #include "utils.h"
 #include "vita.h"
 #include "waveform.h"
 
-static pthread_workqueue_t vita_wq = NULL;
-
+// ****************************************
+// Structs, Enums, typedefs
+// ****************************************
 struct data_cb_wq_desc {
    struct waveform_cb_list* cb;
    struct waveform_vita_packet packet;
@@ -27,6 +53,20 @@ struct data_cb_wq_desc {
    struct waveform_t* wf;
 };
 
+// ****************************************
+// Static Variables
+// ****************************************
+static pthread_workqueue_t vita_wq = NULL;
+
+// ****************************************
+// Static Functions
+// ****************************************
+/// @brief Work queue callback for VITA packets
+/// @details When a VITA packet arrives, we do initial parsing and then pass it on to the user waveform code
+///          for processing.  When we do so, we place it into the high priority work queue and run it on a different
+///          thread so that the user code does not slow down the packet processing loop.  Since the work queue API
+///          can only take a single argument, we use a structure to contain the info we need.
+/// @param arg The work queue descriptor for a VITA callback.
 static void vita_data_cb(void* arg)
 {
    struct data_cb_wq_desc* desc = (struct data_cb_wq_desc*) arg;
@@ -36,6 +76,13 @@ static void vita_data_cb(void* arg)
    free(desc);
 }
 
+/// @brief Libevent callback for when a VITA packet is read from the UDP socket.
+/// @details When a packet is recieved from the network, libevent calls this callback to let us know.  In here we do all of
+///          our initial packet processing and sanity checks and bit flipping before calling the appropriate user callback
+///          function.
+/// @param socket The socket upon which the VITA packet was received
+/// @param what The event type that occurred
+/// @param ctx A reference to the VITA structure for the processing loop.
 static void vita_read_cb(evutil_socket_t socket, short what, void* ctx)
 {
    struct vita* vita = (struct vita*) ctx;
@@ -114,6 +161,12 @@ static void vita_read_cb(evutil_socket_t socket, short what, void* ctx)
    }
 }
 
+/// @brief VITA processing event loop
+/// @details An event loop for VITA processing that opens a socket to communicate with the radio, sets up
+///          appropriate callbacks so that we can handle events and then executes event_base_dispatch
+///          which will run in an infinite loop until there is no more connection there.  See the libevent
+///          documentation for more details.
+/// @param arg The VITA struct for which to run the event loop
 static void* vita_evt_loop(void* arg)
 {
    struct waveform_t* wf = (struct waveform_t*) arg;
@@ -209,6 +262,59 @@ fail:
    return NULL;
 }
 
+/// @brief Perform a write to the VITA socket
+/// @details When writing to the VITA socket via libevent, we register an event that has EV_WRITE as its trigger.  This will mean
+///          that the event will be called when the socket is ready to receive writes.  This should be almost immediately for a UDP
+///          socket like this.  When that event is triggered, this callback is performed.  We do this as a one-shot callback and register
+///          another event when we are ready to write again.
+/// @param socket The socket upon which the VITA packet was received
+/// @param what The event type that occurred
+/// @param ctx A reference to the VITA packet to be sent
+static void vita_send_packet_cb(evutil_socket_t socket, short what, void* arg)
+{
+   struct waveform_vita_packet* packet = (struct waveform_vita_packet*) arg;
+   if (!(what & EV_WRITE))
+   {
+      fprintf(stderr, "Callback is not for a read?!\n");
+      return;
+   }
+
+   if ((packet->timestamp_type & 0x50u) != 0)
+   {
+      packet->timestamp_int = time(NULL);
+      packet->timestamp_frac = 0;
+   }
+
+   ssize_t bytes_sent;
+   size_t packet_len = VITA_PACKET_HEADER_SIZE(packet) + (packet->length * sizeof(float));
+   packet->length += (VITA_PACKET_HEADER_SIZE(packet) / 4);
+   assert(packet_len % 4 == 0);
+
+   // Hopefully the compiler will vector optimize this, because there should be NEON instructions for 4-wide
+   // byte swap.  If it doesn't, we should do it ourselves.
+   for (uint32_t* word = (uint32_t*) packet; word < (uint32_t*) (packet + 1); ++word)
+   {
+      *word = htonl(*word);
+   }
+
+   if ((bytes_sent = send(socket, packet, packet_len, 0)) == -1)
+   {
+      fprintf(stderr, "Error sending vita packet: %s\n", strerror(errno));
+      return;
+   }
+
+   if (bytes_sent != packet_len)
+   {
+      fprintf(stderr, "Short write on vita send\n");
+      return;
+   }
+
+   free(packet);
+}
+
+// ****************************************
+// Global Functions
+// ****************************************
 int vita_init(struct waveform_t* wf)
 {
    int ret;
@@ -251,48 +357,6 @@ int vita_init(struct waveform_t* wf)
 void vita_destroy(struct waveform_t* wf)
 {
    event_base_loopexit(wf->vita.base, NULL);
-}
-
-static void vita_send_packet_cb(evutil_socket_t socket, short what, void* arg)
-{
-   struct waveform_vita_packet* packet = (struct waveform_vita_packet*) arg;
-   if (!(what & EV_WRITE))
-   {
-      fprintf(stderr, "Callback is not for a read?!\n");
-      return;
-   }
-
-   if ((packet->timestamp_type & 0x50u) != 0)
-   {
-      packet->timestamp_int = time(NULL);
-      packet->timestamp_frac = 0;
-   }
-
-   ssize_t bytes_sent;
-   size_t packet_len = VITA_PACKET_HEADER_SIZE(packet) + (packet->length * sizeof(float));
-   packet->length += (VITA_PACKET_HEADER_SIZE(packet) / 4);
-   assert(packet_len % 4 == 0);
-
-   // Hopefully the compiler will vector optimize this, because there should be NEON instructions for 4-wide
-   // byte swap.  If it doesn't, we should do it ourselves.
-   for (uint32_t* word = (uint32_t*) packet; word < (uint32_t*) (packet + 1); ++word)
-   {
-      *word = htonl(*word);
-   }
-
-   if ((bytes_sent = send(socket, packet, packet_len, 0)) == -1)
-   {
-      output("Error sending vita packet: %s\n", strerror(errno));
-      return;
-   }
-
-   if (bytes_sent != packet_len)
-   {
-      output("Short write on vita send\n");
-      return;
-   }
-
-   free(packet);
 }
 
 void vita_send_packet(struct vita* vita, struct waveform_vita_packet* packet)
@@ -343,6 +407,9 @@ void vita_send_data_packet(struct vita* vita, float* samples, size_t num_samples
    vita_send_packet(vita, packet);
 }
 
+// ****************************************
+// Public API Functions
+// ****************************************
 inline uint16_t get_packet_len(struct waveform_vita_packet* packet)
 {
    return packet->length - (VITA_PACKET_HEADER_SIZE(packet) / sizeof(uint32_t));

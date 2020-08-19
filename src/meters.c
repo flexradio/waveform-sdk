@@ -1,16 +1,54 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
+/// @file meters.c
+/// @brief Implementation of the metering components of the API
+/// @authors Annaliese McDermond <anna@flex-radio.com>
+///
+/// @copyright Copyright (c) 2020 FlexRadio Systems
+///
+/// This program is free software: you can redistribute it and/or modify
+/// it under the terms of the GNU Lesser General Public License as published by
+/// the Free Software Foundation, version 3.
+///
+/// This program is distributed in the hope that it will be useful, but
+/// WITHOUT ANY WARRANTY; without even the implied warranty of
+/// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+/// Lesser General Public License for more details.
+///
+/// You should have received a copy of the GNU Lesser General Public License
+/// along with this program. If not, see <http://www.gnu.org/licenses/>.
+///
+
+// ****************************************
+// System Includes
+// ****************************************
 #include <errno.h>
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 
+// ****************************************
+// Third Party Library Includes
+// ****************************************
 #include <sds.h>
 #include <utlist.h>
 
+// ****************************************
+// Project Includes
+// ****************************************
 #include "meters.h"
 #include "utils.h"
 #include "waveform.h"
 #include "waveform_api.h"
 
+// ****************************************
+// Static Functions
+// ****************************************
+
+/// @brief Convert Units to a String Value
+/// @details Function to convert our unit enum to a string value.  The string is
+///          required to send to the API in the command.
+/// @param waveform_units A unit identifier
+/// @returns String representation of those units for use in the API
 static const char* unit_to_string(enum waveform_units unit)
 {
    switch (unit)
@@ -43,6 +81,15 @@ static const char* unit_to_string(enum waveform_units unit)
    }
 }
 
+/// @brief Callback for meter registration
+/// @details When we send a call to register a meter in waveform_create_meters, we need a callback to
+///          harvest the meter id number from the return.  This callback works with the waveform_send_api_command
+///          infrastructure to harvest that meter id and handle the return.
+/// @param waveform Reference to the waveform structure
+/// @param code Return code from the radio API
+/// @param message Text message from teh radio API's response
+/// @param arg Argument passed to waveform_send_api_command_cb, in this case the waveform_meter structure that
+///            we are working with for this callback.
 static void register_meter_cb(struct waveform_t* waveform, unsigned int code, sds message, void* arg)
 {
    char* endptr;
@@ -82,6 +129,24 @@ register_failed:
    free(entry);
 }
 
+// ****************************************
+// Global Functions
+// ****************************************
+void waveform_create_meters(struct waveform_t* wf)
+{
+   struct waveform_meter* meter;
+
+   LL_FOREACH(wf->meter_head, meter)
+   {
+      waveform_send_api_command_cb(wf, register_meter_cb, meter,
+                                   "meter create name=%s type=WAVEFORM min=%f max=%f unit=%s fps=20", meter->name,
+                                   meter->min, meter->max, unit_to_string(meter->unit));
+   }
+}
+
+// ****************************************
+// Public API Functions
+// ****************************************
 void waveform_register_meter(struct waveform_t* wf, const char* name, float min, float max, enum waveform_units unit)
 {
    struct waveform_meter* meter;
@@ -110,18 +175,6 @@ inline void waveform_register_meter_list(struct waveform_t* wf, const struct wav
    for (int i = 0; i < num_meters; ++i)
    {
       waveform_register_meter(wf, list[i].name, list[i].min, list[i].max, list[i].unit);
-   }
-}
-
-void waveform_create_meters(struct waveform_t* wf)
-{
-   struct waveform_meter* meter;
-
-   LL_FOREACH(wf->meter_head, meter)
-   {
-      waveform_send_api_command_cb(wf, register_meter_cb, meter,
-                                   "meter create name=%s type=WAVEFORM min=%f max=%f unit=%s fps=20", meter->name,
-                                   meter->min, meter->max, unit_to_string(meter->unit));
    }
 }
 
