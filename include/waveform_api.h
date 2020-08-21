@@ -345,4 +345,10 @@ void waveform_register_meter_list(struct waveform_t* wf,
                                   const struct waveform_meter_entry list[],
                                   int num_meters);
 
+/// @brief Finds a radio on the network
+/// @details Listens to the discovery broadcasts being performed by radios and returns the first one it hears.  Returns NULL
+///          if a radio can't be found.
+/// @returns A reference to the address of the radio.  You are responsible for freeing this memory when done.
+struct sockaddr_in* waveform_discover_radio();
+
 #endif//WAVEFORM_SDK_WAVEFORM_H
