@@ -163,14 +163,22 @@ fail:
    sdsfree(discovery_string);
 }
 
+static void timeout_cb(evutil_socket_t sock, short what, void* ctx)
+{
+   struct sockaddr_in** addrptr = ctx;
+   *addrptr = NULL;
+   event_base_loopbreak(base);
+}
+
 // ****************************************
 // Public API Functions
 // ****************************************
-struct sockaddr_in* waveform_discover_radio()
+struct sockaddr_in* waveform_discover_radio(const struct timeval* timeout)
 {
    int sock;
    const int one = 1;
    struct event* evt;
+   struct event* timeout_evt;
 
    struct sockaddr_in* addr = NULL;
 
@@ -216,6 +224,18 @@ struct sockaddr_in* waveform_discover_radio()
       goto fail_evt;
    }
 
+   if ((timeout_evt = evtimer_new(base, timeout_cb, &addr)) == NULL)
+   {
+      fprintf(stderr, "Cannot create discovery timeout event\n");
+      goto fail_evt;
+   }
+
+   if ((evtimer_add(timeout_evt, timeout)) == 1)
+   {
+      fprintf(stderr, "Cannot add discovery timeout event to base\n");
+      goto fail_disc_evt;
+   }
+
    event_base_dispatch(base);
 
    event_free(evt);
@@ -223,6 +243,8 @@ struct sockaddr_in* waveform_discover_radio()
    close(sock);
    return addr;
 
+fail_disc_evt:
+   event_free(timeout_evt);
 fail_evt:
    event_free(evt);
 fail_base:

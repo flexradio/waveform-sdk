@@ -348,7 +348,8 @@ void waveform_register_meter_list(struct waveform_t* wf,
 /// @brief Finds a radio on the network
 /// @details Listens to the discovery broadcasts being performed by radios and returns the first one it hears.  Returns NULL
 ///          if a radio can't be found.
+/// @param timeout A timeout value after which the discovery will return unsuccessfully.
 /// @returns A reference to the address of the radio.  You are responsible for freeing this memory when done.
-struct sockaddr_in* waveform_discover_radio();
+struct sockaddr_in* waveform_discover_radio(const struct timeval* timeout);
 
 #endif//WAVEFORM_SDK_WAVEFORM_H
