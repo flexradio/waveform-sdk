@@ -166,19 +166,27 @@ static void state_test(struct waveform_t* waveform, enum waveform_state state,
 
 int main(int argc, char** argv)
 {
-   struct sockaddr_in addr = {.sin_addr = {0},
-                              .sin_port = htons(4992),
-                              .sin_family = AF_INET};
+   struct sockaddr_in* addr;
 
    struct junk_context ctx = {0};
 
-   inet_aton("10.0.3.34", &addr.sin_addr);
-   //   inet_aton("10.0.3.50", &addr.sin_addr);
+   struct timeval timeout = {
+         .tv_sec = 10,
+         .tv_usec = 0};
+   addr = waveform_discover_radio(&timeout);
+
+   if (addr == NULL)
+   {
+      fprintf(stderr, "No radio found");
+      return 0;
+   }
+
+   fprintf(stderr, "Connecting to radio at %s:%u\n", inet_ntoa(addr->sin_addr), ntohs(addr->sin_port));
 
    pthread_mutex_init(&ctx.rx_phase_lock, NULL);
    pthread_mutex_init(&ctx.tx_phase_lock, NULL);
 
-   struct radio_t* radio = waveform_radio_create(&addr);
+   struct radio_t* radio = waveform_radio_create(addr);
    struct waveform_t* test_waveform =
          waveform_create(radio, "JunkMode", "JUNK", "DIGU", "1.0.0");
    waveform_register_status_cb(test_waveform, "slice", echo_command, NULL);
