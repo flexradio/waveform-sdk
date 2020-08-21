@@ -1,16 +1,40 @@
-//
-// Created by Annaliese McDermond on 6/25/20.
-//
+// SPDX-License-Identifier: LGPL-3.0-or-later
+/// @file main.c
+/// @brief Functional test yoke for Waveform SDK Functionality
+/// @authors Annaliese McDermond <anna@flex-radio.com>
+///
+/// @copyright Copyright (c) 2020 FlexRadio Systems
+///
+/// This program is free software: you can redistribute it and/or modify
+/// it under the terms of the GNU Lesser General Public License as published by
+/// the Free Software Foundation, version 3.
+///
+/// This program is distributed in the hope that it will be useful, but
+/// WITHOUT ANY WARRANTY; without even the implied warranty of
+/// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+/// Lesser General Public License for more details.
+///
+/// You should have received a copy of the GNU Lesser General Public License
+/// along with this program. If not, see <http://www.gnu.org/licenses/>.
+///
+
+// ****************************************
+// System Includes
+// ****************************************
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <string.h>
 
+// ****************************************
+// Project Includes
+// ****************************************
 #include <waveform_api.h>
 
-#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
-
+// ****************************************
+// Structs, Enums, typedefs
+// ****************************************
 struct junk_context {
    int rx_phase;
    int tx_phase;
@@ -20,6 +44,14 @@ struct junk_context {
    short snr;
 };
 
+// ****************************************
+// Macros
+// ****************************************
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
+
+// ****************************************
+// Static Variables
+// ****************************************
 static const float sin_table[] = {0.0F,
                                   0.25881904510252074F,
                                   0.49999999999999994F,
@@ -50,6 +82,12 @@ static const struct waveform_meter_entry meters[] = {
       {.name = "junk-foff", .min = 0.0f, .max = 100000.0f, .unit = DB},
       {.name = "junk-clock-offset", .min = 0.0f, .max = 100000.0f, .unit = DB}};
 
+
+// ****************************************
+// Static Functions
+// ****************************************
+// Static functions are not documented here with doxygen because this file is merely a test yoke that will go away and become
+// an example eventually.  At that point the functions will be documented.
 static int echo_command(struct waveform_t* waveform, unsigned int argc,
                         char* argv[], void* arg __attribute__((unused)))
 {
@@ -164,6 +202,9 @@ static void state_test(struct waveform_t* waveform, enum waveform_state state,
    }
 }
 
+// ****************************************
+// Global Functions
+// ****************************************
 int main(int argc, char** argv)
 {
    struct sockaddr_in* addr;
