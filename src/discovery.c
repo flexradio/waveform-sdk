@@ -149,6 +149,7 @@ static void discovery_cb(evutil_socket_t sock, short what, void* ctx)
    }
 
    addr->sin_port = htons(port);
+   addr->sin_family = AF_INET;
 
    sdsfreesplitres(argv, argc);
    sdsfree(discovery_string);
