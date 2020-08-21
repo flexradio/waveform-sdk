@@ -83,6 +83,12 @@ struct cmd_cb_wq_desc {
    struct waveform_cb_list* cb;
 };
 
+struct state_cb_wq_desc {
+   struct waveform_t* wf;
+   enum waveform_state state;
+   struct waveform_cb_list* cb;
+};
+
 // ****************************************
 // Static Functions
 // ****************************************
@@ -176,12 +182,26 @@ static void destroy_response_queue(struct waveform_t* waveform)
    }
 }
 
+/// @brief Work queue function to execute callback for a state change
+/// @details When a state change is detected, user-defined callbacks are executed for that message.  These
+///          callbacks are registered with waveform_register_state_cb.  These callbacks are executed in the normal
+///          priority work queue so that we do not stall the main command processing thread.
+/// @param arg The work queue descriptor for a state callback.
+static void radio_call_state_cb(void* arg)
+{
+   struct state_cb_wq_desc* desc = (struct state_cb_wq_desc*) arg;
+
+   desc->cb->state_cb(desc->wf, desc->state, desc->cb->arg);
+
+   free(desc);
+}
+
 /// @brief Process changes in the interlock state
 /// @details when the radio is about to enter transmit or recieve state, the interlock will change state and
 ///          we will be notified of that fact in a status message.  This function handles those state notifications
 ///          and passes that notifications to any waveforms that may be interested by way of a callback registered
 ///          by that waveform.
-/// @param radio The radio recieving the state change
+/// @param radio The radio receiving the state change
 /// @param state A string from the radio representing the current state of the interlock.
 static void interlock_state_change(struct radio_t* radio, sds state)
 {
@@ -202,11 +222,17 @@ static void interlock_state_change(struct radio_t* radio, sds state)
 
    radio_waveforms_for_each (radio, cur_wf)
    {
-      for (struct waveform_cb_list* cur_cb = cur_wf->state_cbs;
-           cur_cb != NULL; cur_cb = cur_cb->next)
+      waveform_cb_for_each (cur_wf, state_cbs, cur_cb)
       {
-         // XXX Spawn to worker thread.
-         (cur_cb->state_cb)(cur_wf, cb_state, cur_cb->arg);
+         struct state_cb_wq_desc* desc = calloc(1, sizeof(*desc));
+         pthread_workitem_handle_t handle;
+         unsigned int gencountp;
+
+         desc->wf = cur_wf;
+         desc->state = cb_state;
+         desc->cb = cur_cb;
+
+         pthread_workqueue_additem_np(radio->cb_wq, radio_call_state_cb, desc, &handle, &gencountp);
       }
    }
 }
@@ -223,19 +249,23 @@ static void mode_change(struct radio_t* radio, sds mode, char slice)
 {
    fprintf(stderr, "Got a request for mode %s on slice %d\n", mode, slice);
 
-   //  XXX Run these in the work queue.
    radio_waveforms_for_each (radio, cur_wf)
    {
       //  User has deselected this waveform's mode.
       if (cur_wf->active_slice == slice &&
           strcmp(cur_wf->short_name, mode) != 0)
       {
-         for (struct waveform_cb_list* cur_cb =
-                    cur_wf->state_cbs;
-              cur_cb != NULL; cur_cb = cur_cb->next)
+         waveform_cb_for_each (cur_wf, state_cbs, cur_cb)
          {
-            (cur_cb->state_cb)(cur_wf, INACTIVE,
-                               cur_cb->arg);
+            struct state_cb_wq_desc* desc = calloc(1, sizeof(*desc));
+            pthread_workitem_handle_t handle;
+            unsigned int gencountp;
+
+            desc->wf = cur_wf;
+            desc->state = INACTIVE;
+            desc->cb = cur_cb;
+
+            pthread_workqueue_additem_np(radio->cb_wq, radio_call_state_cb, desc, &handle, &gencountp);
          }
          cur_wf->active_slice = -1;
          vita_destroy(cur_wf);
@@ -245,11 +275,17 @@ static void mode_change(struct radio_t* radio, sds mode, char slice)
       if (cur_wf->active_slice == -1 &&
           strcmp(cur_wf->short_name, mode) == 0)
       {
-         for (struct waveform_cb_list* cur_cb =
-                    cur_wf->state_cbs;
-              cur_cb != NULL; cur_cb = cur_cb->next)
+         waveform_cb_for_each (cur_wf, state_cbs, cur_cb)
          {
-            (cur_cb->state_cb)(cur_wf, ACTIVE, cur_cb->arg);
+            struct state_cb_wq_desc* desc = calloc(1, sizeof(*desc));
+            pthread_workitem_handle_t handle;
+            unsigned int gencountp;
+
+            desc->wf = cur_wf;
+            desc->state = ACTIVE;
+            desc->cb = cur_cb;
+
+            pthread_workqueue_additem_np(radio->cb_wq, radio_call_state_cb, desc, &handle, &gencountp);
          }
          cur_wf->active_slice = slice;
          vita_init(cur_wf);
