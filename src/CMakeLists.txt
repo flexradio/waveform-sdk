@@ -1,6 +1,6 @@
 set(WAVEFORM_SRCS
         utils.c
-        waveform.c radio.c vita.c meters.c)
+        waveform.c radio.c vita.c meters.c discovery.c)
 
 set(WAVEFORM_HDRS
         utils.h
