@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0-or-later
-/// @file waveform.h
+/// @file waveform_api.h
 /// @brief Public definitions of waveform library functions
 /// @authors Annaliese McDermond <anna@flex-radio.com>
 ///
