@@ -1,3 +1,5 @@
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules")
+
 set(WAVEFORM_SRCS
         utils.c
         waveform.c radio.c vita.c meters.c discovery.c)
@@ -6,18 +8,6 @@ set(WAVEFORM_HDRS
         utils.h
         meters.h
         vita.h)
-
-set(EVENT__LIBRARY_TYPE "STATIC" CACHE STRING "")
-set(EVENT__DISABLE_OPENSSL ON CACHE BOOL "")
-set(EVENT__DISABLE_BENCHMARK ON CACHE BOOL "")
-set(EVENT__DISABLE_TESTS ON CACHE BOOL "")
-set(EVENT__DISABLE_SAMPLES ON CACHE BOOL "")
-
-FetchContent_Declare(event
-        GIT_REPOSITORY https://github.com/libevent/libevent.git
-        GIT_TAG release-2.1.11-stable
-)
-FetchContent_MakeAvailable(event)
 
 FetchContent_Declare(sds
         GIT_REPOSITORY https://github.com/antirez/sds.git
@@ -32,27 +22,28 @@ set(sds_SOURCES ${sds_SOURCE_DIR}/sds.c ${sds_SOURCE_DIR}/sds.h ${sds_SOURCE_DIR
 FetchContent_Declare(utlist
         GIT_REPOSITORY https://github.com/troydhanson/uthash.git
         GIT_TAG v2.1.0
-)
+        )
 FetchContent_GetProperties(utlist)
-if(NOT utlist_POPULATED)
+if (NOT utlist_POPULATED)
     FetchContent_Populate(utlist)
-endif()
+endif ()
 
-add_library(waveform STATIC ${WAVEFORM_SRCS} ${WAVEFORM_HDRS} ${sds_SOURCES})
-target_link_libraries(waveform PUBLIC
-        event_core_static
-        event_extra_static
-        event_pthreads_static
-        pthread_workqueue
+find_package(LibEvent REQUIRED)
+find_package(PthreadWorkQueue REQUIRED)
+
+add_library(waveform SHARED ${WAVEFORM_SRCS} ${WAVEFORM_HDRS} ${sds_SOURCES})
+target_link_libraries(waveform
+        PUBLIC
+        LibEvent::LibEvent
+        PthreadWorkQueue::PthreadWorkQueue
         pthread
-)
+        )
+
 target_include_directories(waveform
-    PUBLIC
+        PUBLIC
         ${CMAKE_SOURCE_DIR}/include
-        ${event_SOURCE_DIR}/include
-        ${event_BINARY_DIR}/include
-        ${pthread_wq_SOURCE_DIR}/include
+        PRIVATE
         ${sds_SOURCE_DIR}
-    PRIVATE
         ${utlist_SOURCE_DIR}/src
-)
+        )
+

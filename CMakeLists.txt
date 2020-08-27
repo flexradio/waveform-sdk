@@ -5,7 +5,6 @@ set(CMAKE_C_STANDARD 99)
 
 include(FetchContent)
 
-add_subdirectory(libpwq)
 add_subdirectory(src)
 add_subdirectory(tests)
 
