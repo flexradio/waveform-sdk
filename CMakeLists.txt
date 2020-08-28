@@ -7,6 +7,7 @@ include(FetchContent)
 include(GNUInstallDirs)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules")
+message(STATUS "CMAKE_MODULE_PATH=${CMAKE_MODULE_PATH}")
 
 set(WAVEFORM_SRCS
         src/utils.c
@@ -46,12 +47,14 @@ find_package(PthreadWorkQueue REQUIRED)
 add_library(waveform SHARED ${WAVEFORM_SRCS} ${WAVEFORM_HDRS} ${sds_SOURCES})
 set_target_properties(waveform PROPERTIES
         PUBLIC_HEADER "include/waveform_api.h"
-        SOVERSION "1.0")
+        SOVERSION 1
+        VERSION 1.0)
 target_link_libraries(waveform
         PUBLIC
         LibEvent::LibEvent
         PthreadWorkQueue::PthreadWorkQueue
         pthread
+        m
         )
 
 target_include_directories(waveform
@@ -74,7 +77,7 @@ endif ()
 
 set(CMAKE_INSTALL_LIBDIR "lib/${CMAKE_LIBRARY_ARCHITECTURE}")
 set(CMAKE_INSTALL_INCLUDEDIR "${CMAKE_INSTALL_INCLUDEDIR}/waveform")
-install(TARGETS waveform
+install(TARGETS waveform EXPORT LibWaveformTargets
         LIBRARY
         DESTINATION "${LIBDIR}"
         PUBLIC_HEADER
@@ -82,6 +85,44 @@ install(TARGETS waveform
 
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/example TYPE DOC)
 install(FILES ${CMAKE_SOURCE_DIR}/doc/README.md TYPE DOC)
+
+include(CMakePackageConfigHelpers)
+write_basic_package_version_file(
+        "${CMAKE_CURRENT_BINARY_DIR}/LibWaveform/LibWaveformConfigVersion.cmake"
+        VERSION "1.0"
+        COMPATIBILITY AnyNewerVersion
+)
+export(EXPORT LibWaveformTargets
+        FILE "${CMAKE_CURRENT_BINARY_DIR}/LibWaveform/LibWaveformTargets.cmake"
+        NAMESPACE Waveform::
+        )
+configure_file(cmake/LibWaveformConfig.cmake
+        "${CMAKE_CURRENT_BINARY_DIR}/LibWaveform/LibWaveformConfig.cmake"
+        COPYONLY
+        )
+
+set(ConfigPackageLocation lib/cmake/LibWaveform)
+install(EXPORT LibWaveformTargets
+        FILE
+        LibWaveformTargets.cmake
+        NAMESPACE
+        LibWaveform::
+        DESTINATION
+        ${ConfigPackageLocation}
+        )
+install(
+        FILES
+        cmake/LibWaveformConfig.cmake
+        "${CMAKE_CURRENT_BINARY_DIR}/LibWaveform/LibWaveformConfigVersion.cmake"
+        DESTINATION
+        ${ConfigPackageLocation}
+)
+install(
+        DIRECTORY
+        cmake/Modules
+        DESTINATION
+        ${ConfigPackageLocation}
+)
 
 set(CPACK_GENERATOR "DEB")
 set(CPACK_PACKAGE_NAME "libwaveform")
