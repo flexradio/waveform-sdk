@@ -76,7 +76,7 @@ struct waveform_t {
    char* short_name;
    char* underlying_mode;
    char* version;
-   char active_slice;
+   int active_slice;
 
    int rx_depth;
    int tx_depth;
