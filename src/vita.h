@@ -28,7 +28,7 @@
 #include <pthread_workqueue.h>
 #include <tgmath.h>
 
-#include <waveform_api.h>
+#include "waveform_api.h"
 
 // ****************************************
 // Macros
