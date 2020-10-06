@@ -336,6 +336,18 @@ uint32_t get_packet_ts_int(struct waveform_vita_packet* packet);
 /// @returns An integer representing the fractional timestamp of the packet in host byte order.
 uint64_t get_packet_ts_frac(struct waveform_vita_packet* packet);
 
+/// @brief Gets the stream ID from a received packet.
+/// @details Returns the stream ID field from the VITA-49 packet from the radio.
+/// @param packet A packet returned from the radio in the waveform_data_cb_t callback.
+/// @returns an integer representing the stream ID of the packet in host byte order.
+uint32_t get_stream_id(struct waveform_vita_packet* packet);
+
+/// @brief Gets the class ID from a received packet.
+/// @details Returns the class ID field from the VITA-49 packet from the radio.
+/// @param packet A packet returned from the radio in the waveform_data_cb_t callback.
+/// @returns an integer representing the class ID of the packet in host byte order.
+uint64_t get_class_id(struct waveform_vita_packet* packet);
+
 /// @brief Sets a structure for waveform context
 /// @details State is sometimes necessary for a waveform to preserve values.  This function allows you to register
 ///          a pointer to a context structure that will be available during all waveform callbacks.  This call is

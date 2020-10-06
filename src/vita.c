@@ -428,3 +428,13 @@ inline uint64_t get_packet_ts_frac(struct waveform_vita_packet* packet)
 {
    return packet->timestamp_frac;
 }
+
+inline uint32_t get_stream_id(struct waveform_vita_packet* packet)
+{
+   return packet->stream_id;
+}
+
+inline uint64_t get_class_id(struct waveform_vita_packet* packet)
+{
+   return packet->class_id;
+}
