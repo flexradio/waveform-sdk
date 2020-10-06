@@ -29,6 +29,7 @@
 // Third Party Library Includes
 // ****************************************
 #include <event2/bufferevent.h>
+#include <utlist.h>
 
 // ****************************************
 // Project Includes
@@ -129,39 +130,6 @@ void waveform_destroy(struct waveform_t* waveform)
    free(waveform);
 }
 
-int waveform_register_status_cb(struct waveform_t* waveform, char* status_name,
-                                waveform_cmd_cb_t cb, void* arg)
-{
-   struct waveform_cb_list* new_cb = calloc(1, sizeof(*new_cb));
-   if (!new_cb)
-   {
-      return -1;
-   }
-
-   new_cb->name = sdsnew(status_name);
-   if (!new_cb->name)
-   {
-      free(new_cb);
-      return -1;
-   }
-
-   new_cb->cmd_cb = cb;
-   new_cb->arg = arg;
-
-   if (!waveform->status_cbs)
-   {
-      waveform->status_cbs = new_cb;
-   }
-   else
-   {
-      struct waveform_cb_list* cur;
-      for (cur = waveform->status_cbs; cur->next != NULL;
-           cur = cur->next)
-         ;
-      cur->next = new_cb;
-   }
-}
-
 inline long waveform_send_api_command_cb(struct waveform_t* waveform,
                                          waveform_response_cb_t cb, void* arg,
                                          char* command, ...)
@@ -177,8 +145,8 @@ inline long waveform_send_api_command_cb(struct waveform_t* waveform,
    return ret;
 }
 
-int waveform_register_state_cb(struct waveform_t* waveform,
-                               waveform_state_cb_t cb, void* arg)
+static int waveform_register_cb(struct waveform_cb_list** cb_list, char* name,
+                                waveform_cmd_cb_t cb, void* arg)
 {
    struct waveform_cb_list* new_cb = calloc(1, sizeof(*new_cb));
    if (!new_cb)
@@ -186,108 +154,55 @@ int waveform_register_state_cb(struct waveform_t* waveform,
       return -1;
    }
 
-   new_cb->name = NULL;
-
-   new_cb->state_cb = cb;
-   new_cb->arg = arg;
-
-   if (!waveform->state_cbs)
+   if (name != NULL)
    {
-      waveform->state_cbs = new_cb;
+      new_cb->name = sdsnew(name);
+      if (!new_cb->name)
+      {
+         free(new_cb);
+         return -1;
+      }
    }
    else
    {
-      struct waveform_cb_list* cur;
-      for (cur = waveform->state_cbs; cur->next != NULL;
-           cur = cur->next)
-         ;
-      cur->next = new_cb;
+      new_cb->name = NULL;
    }
-}
-
-int waveform_register_rx_data_cb(struct waveform_t* waveform,
-                                 waveform_data_cb_t cb, void* arg)
-{
-   struct waveform_cb_list* new_cb = calloc(1, sizeof(*new_cb));
-   if (!new_cb)
-   {
-      return -1;
-   }
-
-   new_cb->name = NULL;
-
-   new_cb->data_cb = cb;
-   new_cb->arg = arg;
-
-   if (!waveform->rx_data_cbs)
-   {
-      waveform->rx_data_cbs = new_cb;
-   }
-   else
-   {
-      struct waveform_cb_list* cur;
-      for (cur = waveform->rx_data_cbs; cur->next != NULL;
-           cur = cur->next)
-         ;
-      cur->next = new_cb;
-   }
-}
-
-int waveform_register_tx_data_cb(struct waveform_t* waveform,
-                                 waveform_data_cb_t cb, void* arg)
-{
-   struct waveform_cb_list* new_cb = calloc(1, sizeof(*new_cb));
-   if (!new_cb)
-   {
-      return -1;
-   }
-
-   new_cb->name = NULL;
-
-   new_cb->data_cb = cb;
-   new_cb->arg = arg;
-
-   if (!waveform->tx_data_cbs)
-   {
-      waveform->tx_data_cbs = new_cb;
-   }
-   else
-   {
-      struct waveform_cb_list* cur;
-      for (cur = waveform->tx_data_cbs; cur->next != NULL;
-           cur = cur->next)
-         ;
-      cur->next = new_cb;
-   }
-}
-
-int waveform_register_command_cb(struct waveform_t* waveform,
-                                 char* command_name, waveform_cmd_cb_t cb,
-                                 void* arg)
-{
-   struct waveform_cb_list* new_cb = calloc(1, sizeof(*new_cb));
-   if (!new_cb)
-   {
-      return -1;
-   }
-
-   new_cb->name = sdsnew(command_name);
 
    new_cb->cmd_cb = cb;
    new_cb->arg = arg;
 
-   if (!waveform->cmd_cbs)
-   {
-      waveform->cmd_cbs = new_cb;
-   }
-   else
-   {
-      struct waveform_cb_list* cur;
-      for (cur = waveform->cmd_cbs; cur->next != NULL;
-           cur = cur->next)
-         ;
-      cur->next = new_cb;
-   }
+   LL_APPEND(*cb_list, new_cb);
+}
+
+inline int waveform_register_status_cb(struct waveform_t* waveform, char* status_name,
+                                       waveform_cmd_cb_t cb, void* arg)
+{
+   return waveform_register_cb(&waveform->status_cbs, status_name, cb, arg);
+}
+
+inline int waveform_register_state_cb(struct waveform_t* waveform,
+                                      waveform_state_cb_t cb, void* arg)
+{
+   return waveform_register_cb(&waveform->state_cbs, NULL, (waveform_cmd_cb_t) cb, arg);
+}
+
+inline int waveform_register_command_cb(struct waveform_t* waveform,
+                                        char* command_name, waveform_cmd_cb_t cb,
+                                        void* arg)
+{
+   return waveform_register_cb(&waveform->cmd_cbs, command_name, cb, arg);
+}
+
+inline int waveform_register_rx_data_cb(struct waveform_t* waveform,
+                                        waveform_data_cb_t cb, void* arg)
+{
+   return waveform_register_cb(&waveform->rx_data_cbs, NULL, (waveform_cmd_cb_t) cb, arg);
+}
+
+inline int waveform_register_tx_data_cb(struct waveform_t* waveform,
+                                        waveform_data_cb_t cb, void* arg)
+{
+   return waveform_register_cb(&waveform->tx_data_cbs, NULL, (waveform_cmd_cb_t) cb, arg);
 }
 
 inline void waveform_send_data_packet(struct waveform_t* waveform,
