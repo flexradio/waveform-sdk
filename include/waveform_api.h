@@ -175,6 +175,15 @@ int waveform_register_tx_data_cb(struct waveform_t* waveform,
 int waveform_register_rx_data_cb(struct waveform_t* waveform,
                                  waveform_data_cb_t cb, void* arg);
 
+/// @brief Register a unknown data packet callback for a waveform.
+/// @details Registers a callback that is called when there is an unknown VITA-49 packet from the radio.  This could
+///          be anything from a 1PPS packet, to other various packets that we don't handle in other ways.
+/// @param waveform Pointer to the waveform structure returned by waveform_create()
+/// @param cb The callback function
+/// @param arg A user-defined argument to be passed to the callback on execution.  Can be NULL.
+/// @return 0 upon success, -1 on failure
+int waveform_register_unknown_data_cb(struct waveform_t* waveform, waveform_data_cb_t cb, void* arg);
+
 /// @brief Register a status callback.
 /// @details Registers a callback is called when the radio status changes.  This function also handles creating the
 ///          event subscription in the API.

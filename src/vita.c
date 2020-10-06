@@ -34,6 +34,7 @@
 // Third Party Library Includes
 // ****************************************
 #include <event2/event.h>
+#include <utlist.h>
 
 // ****************************************
 // Project Includes
@@ -124,40 +125,38 @@ static void vita_read_cb(evutil_socket_t socket, short what, void* ctx)
    //  XXX This is ugly.  We should probably be using some sort of pool of packet structures so that
    //  XXX we don't have to reallocate the memory all the time.  Maybe this really doesn't make a
    //  XXX difference, but memory copies suck.
-   if (!(packet.stream_id & 0x0001U))
+   struct waveform_cb_list* cb_list;
+   if (packet.class_id == AUDIO_CLASS_ID)
    {
-      vita->rx_stream_id = packet.stream_id;
-      waveform_cb_for_each (cur_wf, rx_data_cbs, cur_cb)
+      if (!(packet.stream_id & 0x0001U))
       {
-         struct data_cb_wq_desc* desc = calloc(1, sizeof(*desc));
-         pthread_workitem_handle_t handle;
-         unsigned int gencountp;
-
-         desc->wf = cur_wf;
-         memcpy(&desc->packet, &packet, bytes_received);
-         desc->packet_size = bytes_received;
-         desc->cb = cur_cb;
-
-         pthread_workqueue_additem_np(vita_wq, vita_data_cb, desc, &handle, &gencountp);
+         cb_list = cur_wf->rx_data_cbs;
+         vita->rx_stream_id = packet.stream_id;
+      }
+      else
+      {
+         cb_list = cur_wf->tx_data_cbs;
+         vita->tx_stream_id = packet.stream_id;
       }
    }
    else
    {
-      //  Transmit packet processing
-      vita->tx_stream_id = packet.stream_id;
-      waveform_cb_for_each (cur_wf, tx_data_cbs, cur_cb)
-      {
-         struct data_cb_wq_desc* desc = calloc(1, sizeof(*desc));
-         pthread_workitem_handle_t handle;
-         unsigned int gencountp;
+      cb_list = cur_wf->unk_data_cbs;
+   }
 
-         desc->wf = cur_wf;
-         memcpy(&desc->packet, &packet, bytes_received);
-         desc->packet_size = bytes_received;
-         desc->cb = cur_cb;
+   struct waveform_cb_list* cur_cb;
+   LL_FOREACH(cb_list, cur_cb)
+   {
+      struct data_cb_wq_desc* desc = calloc(1, sizeof(*desc));
+      pthread_workitem_handle_t handle;
+      unsigned int gencountp;
 
-         pthread_workqueue_additem_np(vita_wq, vita_data_cb, desc, &handle, &gencountp);
-      }
+      desc->wf = cur_wf;
+      memcpy(&desc->packet, &packet, bytes_received);
+      desc->packet_size = bytes_received;
+      desc->cb = cur_cb;
+
+      pthread_workqueue_additem_np(vita_wq, vita_data_cb, desc, &handle, &gencountp);
    }
 }
 

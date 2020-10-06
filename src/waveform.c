@@ -205,6 +205,12 @@ inline int waveform_register_tx_data_cb(struct waveform_t* waveform,
    return waveform_register_cb(&waveform->tx_data_cbs, NULL, (waveform_cmd_cb_t) cb, arg);
 }
 
+inline int waveform_register_unknown_data_cb(struct waveform_t* waveform,
+                                             waveform_data_cb_t cb, void* arg)
+{
+   return waveform_register_cb(&waveform->unk_data_cbs, NULL, (waveform_cmd_cb_t) cb, arg);
+}
+
 inline void waveform_send_data_packet(struct waveform_t* waveform,
                                       float* samples, size_t num_samples,
                                       enum waveform_packet_type type)
