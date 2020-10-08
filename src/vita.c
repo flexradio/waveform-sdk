@@ -122,12 +122,11 @@ static void vita_read_cb(evutil_socket_t socket, short what, void* ctx)
 
    struct waveform_t* cur_wf = container_of(vita, struct waveform_t, vita);
 
-   //  XXX This is ugly.  We should probably be using some sort of pool of packet structures so that
-   //  XXX we don't have to reallocate the memory all the time.  Maybe this really doesn't make a
-   //  XXX difference, but memory copies suck.
    struct waveform_cb_list* cb_list;
    if (packet.class_id == AUDIO_CLASS_ID)
    {
+      // Receive packets have the LSB of the stream ID cleared.  Transmit packets
+      // have it set.
       if (!(packet.stream_id & 0x0001U))
       {
          cb_list = cur_wf->rx_data_cbs;
