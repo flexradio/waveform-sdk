@@ -27,6 +27,11 @@
 #include <sds.h>
 
 // ****************************************
+// Project Includes
+// ****************************************
+#include "waveform_api.h"
+
+// ****************************************
 // Macros
 // ****************************************
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
@@ -34,6 +39,21 @@
 #define container_of(ptr, type, member) ({                      \
         const typeof( ((type *)0)->member ) *__mptr = (ptr);    \
         (type *)( (char *)__mptr - offsetof(type,member) ); })
+
+/// @brief Log a message to the console
+/// @details Logs a message to the console given a log level.  Any messages at the
+///          current log level or above will be logged to the console.
+/// @param level The log level at which to log this message
+/// @param fmt printf(3) style format string for the log message
+#define waveform_log(level, fmt, ...) \
+   if (level >= waveform_log_level)   \
+      fprintf(stderr, "%s:%d(%s): %s: " fmt, FILE_BASENAME, __LINE__, __func__, waveform_log_level_describe(level), ##__VA_ARGS__);
+
+// ****************************************
+// External Definitions
+// ****************************************
+extern enum waveform_log_levels waveform_log_level;
+extern const char* waveform_log_level_describe(int level);
 
 // ****************************************
 // Global Functions

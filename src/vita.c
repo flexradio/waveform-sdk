@@ -91,13 +91,13 @@ static void vita_read_cb(evutil_socket_t socket, short what, void* ctx)
 
    if (!(what & EV_READ))
    {
-      fprintf(stderr, "Callback is not for a read?!\n");
+      waveform_log(WF_LOG_INFO, "Callback is not for a read?!\n");
       return;
    }
 
    if ((bytes_received = recv(socket, &packet, sizeof(packet), 0)) == -1)
    {
-      fprintf(stderr, "VITA read failed: %s\n", strerror(errno));
+      waveform_log(WF_LOG_ERROR, "VITA read failed: %s\n", strerror(errno));
       return;
    }
 
@@ -114,8 +114,8 @@ static void vita_read_cb(evutil_socket_t socket, short what, void* ctx)
 
    if (payload_length != bytes_received - VITA_PACKET_HEADER_SIZE(&packet))
    {
-      fprintf(stderr, "VITA header size doesn't match bytes read from network (%lu != %ld - %lu) -- %lu\n",
-              payload_length, bytes_received, VITA_PACKET_HEADER_SIZE(&packet), sizeof(struct waveform_vita_packet));
+      waveform_log(WF_LOG_INFO, "VITA header size doesn't match bytes read from network (%lu != %ld - %lu) -- %lu\n",
+                   payload_length, bytes_received, VITA_PACKET_HEADER_SIZE(&packet), sizeof(struct waveform_vita_packet));
       return;
    }
 
@@ -178,7 +178,7 @@ static void* vita_evt_loop(void* arg)
    ret = pthread_setschedparam(pthread_self(), SCHED_FIFO, &thread_fifo_priority);
    if (ret)
    {
-      fprintf(stderr, "Setting thread to realtime: %s\n", strerror(ret));
+      waveform_log(WF_LOG_DEBUG, "Setting thread to realtime: %s\n", strerror(ret));
    }
 
    struct sockaddr_in bind_addr = {
@@ -194,49 +194,49 @@ static void* vita_evt_loop(void* arg)
          .sin_port = htons(4993)// XXX Magic here
    };
 
-   fprintf(stderr, "Initializing VITA-49 engine...\n");
+   waveform_log(WF_LOG_DEBUG, "Initializing VITA-49 engine...\n");
 
    vita->sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
    if (vita->sock == -1)
    {
-      fprintf(stderr, " Failed to initialize VITA socket: %s\n", strerror(errno));
+      waveform_log(WF_LOG_ERROR, " Failed to initialize VITA socket: %s\n", strerror(errno));
       goto fail;
    }
 
    if (bind(vita->sock, (struct sockaddr*) &bind_addr, sizeof(bind_addr)))
    {
-      fprintf(stderr, "error binding socket: %s\n", strerror(errno));
+      waveform_log(WF_LOG_ERROR, "error binding socket: %s\n", strerror(errno));
       goto fail_socket;
    }
 
    if (connect(vita->sock, (struct sockaddr*) &radio_addr, sizeof(struct sockaddr_in)) == -1)
    {
-      fprintf(stderr, "Couldn't connect socket: %s\n", strerror(errno));
+      waveform_log(WF_LOG_ERROR, "Couldn't connect socket: %s\n", strerror(errno));
       goto fail_socket;
    }
 
    if (getsockname(vita->sock, (struct sockaddr*) &bind_addr, &bind_addr_len) == -1)
    {
-      fprintf(stderr, "Couldn't get port number of VITA socket\n");
+      waveform_log(WF_LOG_ERROR, "Couldn't get port number of VITA socket\n");
       goto fail_socket;
    }
 
    vita->base = event_base_new();
    if (!vita->base)
    {
-      fprintf(stderr, "Couldn't create VITA event base\n");
+      waveform_log(WF_LOG_ERROR, "Couldn't create VITA event base\n");
       goto fail_socket;
    }
 
    vita->evt = event_new(vita->base, vita->sock, EV_READ | EV_PERSIST, vita_read_cb, vita);
    if (!vita->evt)
    {
-      fprintf(stderr, "Couldn't create VITA event\n");
+      waveform_log(WF_LOG_ERROR, "Couldn't create VITA event\n");
       goto fail_base;
    }
    if (event_add(vita->evt, NULL) == -1)
    {
-      fprintf(stderr, "Couldn't add VITA event to base\n");
+      waveform_log(WF_LOG_ERROR, "Couldn't add VITA event to base\n");
       goto fail_evt;
    }
 
@@ -250,7 +250,7 @@ static void* vita_evt_loop(void* arg)
 
    event_base_dispatch(vita->base);
 
-   fprintf(stderr, "VITA thread ending...\n");
+   waveform_log(WF_LOG_DEBUG, "VITA thread ending...\n");
 
 fail_evt:
    event_free(vita->evt);
@@ -275,7 +275,7 @@ static void vita_send_packet_cb(evutil_socket_t socket, short what, void* arg)
    struct waveform_vita_packet* packet = (struct waveform_vita_packet*) arg;
    if (!(what & EV_WRITE))
    {
-      fprintf(stderr, "Callback is not for a read?!\n");
+      waveform_log(WF_LOG_INFO, "Callback is not for a read?!\n");
       return;
    }
 
@@ -299,13 +299,13 @@ static void vita_send_packet_cb(evutil_socket_t socket, short what, void* arg)
 
    if ((bytes_sent = send(socket, packet, packet_len, 0)) == -1)
    {
-      fprintf(stderr, "Error sending vita packet: %s\n", strerror(errno));
+      waveform_log(WF_LOG_ERROR, "Error sending vita packet: %s\n", strerror(errno));
       return;
    }
 
    if (bytes_sent != packet_len)
    {
-      fprintf(stderr, "Short write on vita send\n");
+      waveform_log(WF_LOG_ERROR, "Short write on vita send\n");
       return;
    }
 
@@ -326,14 +326,14 @@ int vita_init(struct waveform_t* wf)
       ret = pthread_workqueue_attr_init_np(&wq_attr);
       if (ret)
       {
-         fprintf(stderr, "Creating WQ attributes: %s\n", strerror(ret));
+         waveform_log(WF_LOG_ERROR, "Creating WQ attributes: %s\n", strerror(ret));
          return -1;
       }
 
       ret = pthread_workqueue_attr_setqueuepriority_np(&wq_attr, WORKQ_HIGH_PRIOQUEUE);
       if (ret)
       {
-         fprintf(stderr, "Couldn't set WQ priority: %s\n", strerror(ret));
+         waveform_log(WF_LOG_WARNING, "Couldn't set WQ priority: %s\n", strerror(ret));
          //  Purposely not returning here because this is a non-fatal error.  Things will still work,
          //  but potentially really suck.
       }
@@ -341,7 +341,7 @@ int vita_init(struct waveform_t* wf)
       ret = pthread_workqueue_create_np(&vita_wq, &wq_attr);
       if (ret)
       {
-         fprintf(stderr, "Couldn't create callback WQ: %s\n", strerror(ret));
+         waveform_log(WF_LOG_ERROR, "Couldn't create callback WQ: %s\n", strerror(ret));
          return -1;
       }
    }
@@ -349,7 +349,7 @@ int vita_init(struct waveform_t* wf)
    ret = pthread_create(&wf->vita.thread, NULL, vita_evt_loop, wf);
    if (ret)
    {
-      fprintf(stderr, "Creating thread: %s\n", strerror(ret));
+      waveform_log(WF_LOG_ERROR, "Creating thread: %s\n", strerror(ret));
       return -1;
    }
 }
@@ -364,12 +364,12 @@ void vita_send_packet(struct vita* vita, struct waveform_vita_packet* packet)
    vita->evt = event_new(vita->base, vita->sock, EV_WRITE, vita_send_packet_cb, packet);
    if (!vita->evt)
    {
-      fprintf(stderr, "Couldn't create VITA event\n");
+      waveform_log(WF_LOG_ERROR, "Couldn't create VITA event\n");
       return;
    }
    if (event_add(vita->evt, NULL) == -1)
    {
-      fprintf(stderr, "Couldn't add VITA event to base\n");
+      waveform_log(WF_LOG_ERROR, "Couldn't add VITA event to base\n");
       event_free(vita->evt);
       return;
    }
@@ -399,7 +399,7 @@ void vita_send_data_packet(struct vita* vita, float* samples, size_t num_samples
          packet->stream_id = vita->rx_stream_id;
          break;
       default:
-         fprintf(stderr, "Invalid packet type!\n");
+         waveform_log(WF_LOG_INFO, "Invalid packet type!\n");
          break;
    }
 

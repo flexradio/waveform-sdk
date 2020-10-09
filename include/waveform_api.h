@@ -68,6 +68,17 @@ enum waveform_packet_type
    TRANSMITTER_DATA
 };
 
+enum waveform_log_levels
+{
+   WF_LOG_TRACE = 100,
+   WF_LOG_DEBUG = 200,
+   WF_LOG_INFO = 300,
+   WF_LOG_WARNING = 400,
+   WF_LOG_ERROR = 500,
+   WF_LOG_SEVERE = 600,
+   WF_LOG_FATAL = 700
+};
+
 struct waveform_meter_entry {
    char* name;
    float min;
@@ -351,5 +362,11 @@ void waveform_register_meter_list(struct waveform_t* wf,
 /// @param timeout A timeout value after which the discovery will return unsuccessfully.
 /// @returns A reference to the address of the radio.  You are responsible for freeing this memory when done.
 struct sockaddr_in* waveform_discover_radio(const struct timeval* timeout);
+
+/// @brief Sets the log verbosity of the library
+/// @details Sets the logging verbosity of the library.  Any log messages with a level higher than this setting will be logged
+///          to stdout.  See the above enum for relative levels of the logs.
+/// @param level The level of the logging desired
+void waveform_set_log_level(enum waveform_log_levels level);
 
 #endif//WAVEFORM_SDK_WAVEFORM_H

@@ -247,7 +247,7 @@ static void interlock_state_change(struct radio_t* radio, sds state)
 /// @param slice The slice changing mode
 static void mode_change(struct radio_t* radio, sds mode, char slice)
 {
-   fprintf(stderr, "Got a request for mode %s on slice %d\n", mode, slice);
+   waveform_log(WF_LOG_INFO, "Got a request for mode %s on slice %d\n", mode, slice);
 
    radio_waveforms_for_each (radio, cur_wf)
    {
@@ -347,8 +347,8 @@ static void process_status_message(struct radio_t* radio, sds message)
          if ((errno == ERANGE && slice == ULONG_MAX) ||
              (errno != 0 && slice == 0))
          {
-            fprintf(stderr, "Error finding slice: %s\n",
-                    strerror(errno));
+            waveform_log(WF_LOG_ERROR, "Error finding slice: %s\n",
+                         strerror(errno));
          }
          else
          {
@@ -453,7 +453,7 @@ static void process_waveform_command(struct radio_t* radio, int sequence,
    if ((errno == ERANGE && slice == ULONG_MAX) ||
        (errno != 0 && slice == 0))
    {
-      fprintf(stderr, "Error finding slice: %s\n", strerror(errno));
+      waveform_log(WF_LOG_ERROR, "Error finding slice: %s\n", strerror(errno));
 
       sdsfreesplitres(argv, argc);
       return;
@@ -510,7 +510,7 @@ static void radio_process_line(struct radio_t* radio, sds line)
    assert(radio != NULL);
    assert(line != NULL);
 
-   fprintf(stderr, "Rx: %s\n", line);
+   waveform_log(WF_LOG_TRACE, "Rx: %s\n", line);
    char command = *line;
    sdsrange(line, 1, -1);
    sds* tokens = sdssplitlen(line, sdslen(line), "|", 1, &count);
@@ -526,12 +526,12 @@ static void radio_process_line(struct radio_t* radio, sds line)
                       &api_version[1], &api_version[2], &api_version[3]);
 #pragma clang diagnostic pop
          if (ret != 4)
-            fprintf(stderr, "Error converting version string: %s\n",
-                    line);
+            waveform_log(WF_LOG_ERROR, "Error converting version string: %s\n",
+                         line);
 
-         fprintf(stdout, "Radio API Version: %d.%d(%d.%d)\n",
-                 api_version[0], api_version[1], api_version[2],
-                 api_version[3]);
+         waveform_log(WF_LOG_INFO, "Radio API Version: %d.%d(%d.%d)\n",
+                      api_version[0], api_version[1], api_version[2],
+                      api_version[3]);
          break;
 
       case 'H':
@@ -540,15 +540,15 @@ static void radio_process_line(struct radio_t* radio, sds line)
          if ((errno == ERANGE && radio->handle == ULONG_MAX) ||
              (errno != 0 && radio->handle == 0))
          {
-            fprintf(stderr, "Error finding session handle: %s\n",
-                    strerror(errno));
+            waveform_log(WF_LOG_ERROR, "Error finding session handle: %s\n",
+                         strerror(errno));
             break;
          }
 
          if (endptr == line)
          {
-            fprintf(stderr, "Cannot find session handle in: %s\n",
-                    line);
+            waveform_log(WF_LOG_ERROR, "Cannot find session handle in: %s\n",
+                         line);
             break;
          }
 
@@ -558,7 +558,7 @@ static void radio_process_line(struct radio_t* radio, sds line)
          errno = 0;
          if (count != 2)
          {
-            fprintf(stderr, "Invalid status line: %s", line);
+            waveform_log(WF_LOG_ERROR, "Invalid status line: %s", line);
             break;
          }
 
@@ -566,8 +566,8 @@ static void radio_process_line(struct radio_t* radio, sds line)
          if ((errno == ERANGE && handle == ULONG_MAX) ||
              (errno != 0 && handle == 0))
          {
-            fprintf(stderr, "Error finding status handle: %s\n",
-                    strerror(errno));
+            waveform_log(WF_LOG_ERROR, "Error finding status handle: %s\n",
+                         strerror(errno));
             break;
          }
 
@@ -586,7 +586,7 @@ static void radio_process_line(struct radio_t* radio, sds line)
          errno = 0;
          if (count != 3)
          {
-            fprintf(stderr, "Invalid response line: %s\n", line);
+            waveform_log(WF_LOG_ERROR, "Invalid response line: %s\n", line);
             break;
          }
 
@@ -594,15 +594,15 @@ static void radio_process_line(struct radio_t* radio, sds line)
          if ((errno == ERANGE && sequence == ULONG_MAX) ||
              (errno != 0 && sequence == 0))
          {
-            fprintf(stderr, "Error finding response sequence: %s\n",
-                    strerror(errno));
+            waveform_log(WF_LOG_ERROR, "Error finding response sequence: %s\n",
+                         strerror(errno));
             break;
          }
 
          if (endptr == tokens[0])
          {
-            fprintf(stderr,
-                    "Cannot find response sequence in: %s\n", line);
+            waveform_log(WF_LOG_ERROR,
+                         "Cannot find response sequence in: %s\n", line);
             break;
          }
 
@@ -611,15 +611,15 @@ static void radio_process_line(struct radio_t* radio, sds line)
          if ((errno == ERANGE && code == ULONG_MAX) ||
              (errno != 0 && code == 0))
          {
-            fprintf(stderr, "Error finding response code: %s\n",
-                    strerror(errno));
+            waveform_log(WF_LOG_ERROR, "Error finding response code: %s\n",
+                         strerror(errno));
             break;
          }
 
          if (endptr == tokens[1])
          {
-            fprintf(stderr, "Cannot find response code in: %s\n",
-                    line);
+            waveform_log(WF_LOG_ERROR, "Cannot find response code in: %s\n",
+                         line);
             break;
          }
 
@@ -630,7 +630,7 @@ static void radio_process_line(struct radio_t* radio, sds line)
          errno = 0;
          if (count != 2)
          {
-            fprintf(stderr, "Invalid command line: %s\n", line);
+            waveform_log(WF_LOG_ERROR, "Invalid command line: %s\n", line);
             break;
          }
 
@@ -638,14 +638,14 @@ static void radio_process_line(struct radio_t* radio, sds line)
          if ((errno == ERANGE && sequence == ULONG_MAX) ||
              (errno != 0 && sequence == 0))
          {
-            fprintf(stderr, "Error finding command sequence: %s\n",
-                    strerror(errno));
+            waveform_log(WF_LOG_ERROR, "Error finding command sequence: %s\n",
+                         strerror(errno));
             break;
          }
 
          if (tokens[0] == endptr)
          {
-            fprintf(stderr, "Cannot find command sequence in: %s\n", line);
+            waveform_log(WF_LOG_ERROR, "Cannot find command sequence in: %s\n", line);
             break;
          }
 
@@ -653,7 +653,7 @@ static void radio_process_line(struct radio_t* radio, sds line)
          break;
 
       default:
-         fprintf(stderr, "Unknown command: %s\n", line);
+         waveform_log(WF_LOG_DEBUG, "Unknown command: %s\n", line);
          break;
    }
 
@@ -712,21 +712,21 @@ static void radio_event_cb(struct bufferevent* bev __attribute__((unused)),
    switch (what)
    {
       case BEV_EVENT_CONNECTED:
-         fprintf(stdout, "Connected to radio at %s\n",
-                 inet_ntoa(radio->addr.sin_addr));
+         waveform_log(WF_LOG_INFO, "Connected to radio at %s\n",
+                      inet_ntoa(radio->addr.sin_addr));
          radio_init(radio);
          break;
       case BEV_EVENT_ERROR:
-         fprintf(stderr, "Error connecting to radio\n");
+         waveform_log(WF_LOG_SEVERE, "Error connecting to radio\n");
          break;
       case BEV_EVENT_TIMEOUT:
-         fprintf(stderr, "Timeout connecting to radio\n");
+         waveform_log(WF_LOG_SEVERE, "Timeout connecting to radio\n");
          break;
       case BEV_EVENT_EOF:
-         fprintf(stderr, "Remote side disconnected\n");
+         waveform_log(WF_LOG_SEVERE, "Remote side disconnected\n");
          break;
       default:
-         fprintf(stderr, "Unknown error\n");
+         waveform_log(WF_LOG_FATAL, "Unknown error\n");
          break;
    }
 }
@@ -773,7 +773,7 @@ static void* radio_evt_loop(void* arg)
          radio->base, -1, BEV_OPT_CLOSE_ON_FREE | BEV_OPT_THREADSAFE);
    if (!radio->bev)
    {
-      fprintf(stderr, "Could not create buffer event socket\n");
+      waveform_log(WF_LOG_FATAL, "Could not create buffer event socket\n");
       goto eb_abort;
    }
 
@@ -786,7 +786,7 @@ static void* radio_evt_loop(void* arg)
              EV_READ | EV_WRITE))
    {//  XXX Do we really need write here?
 #pragma clang diagnostic pop
-      fprintf(stderr, "Could not enable buffer event\n");
+      waveform_log(WF_LOG_FATAL, "Could not enable buffer event\n");
       goto bev_abort;
    }
 
@@ -794,7 +794,7 @@ static void* radio_evt_loop(void* arg)
                                   (struct sockaddr*) &radio->addr,
                                   sizeof(struct sockaddr_in)))
    {
-      fprintf(stderr, "Could not connect to radio\n");
+      waveform_log(WF_LOG_FATAL, "Could not connect to radio\n");
       goto bev_abort;
    }
 
@@ -829,10 +829,11 @@ long waveform_radio_send_api_command_cb_va(struct waveform_t* wf,
       return -1;
    }
 
-   fprintf(stderr, "Tx: ");
    va_copy(aq, ap);
-   vfprintf(stderr, message_format, aq);
+   sds debugstring = sdscatvprintf(sdsnew("Tx: "), message_format, aq);
    va_end(aq);
+   waveform_log(WF_LOG_TRACE, "%s", debugstring);
+   sdsfree(debugstring);
 
    evbuffer_add_vprintf(output, message_format, ap);
 
@@ -877,13 +878,13 @@ int waveform_radio_start(struct radio_t* radio)
    ret = pthread_workqueue_attr_init_np(&wq_attr);
    if (ret)
    {
-      fprintf(stderr, "Creating WQ attributes: %s\n", strerror(ret));
+      waveform_log(WF_LOG_SEVERE, "Creating WQ attributes: %s\n", strerror(ret));
       return -1;
    }
 
    //    ret = pthread_workqueue_attr_setovercommit_np(&wq_attr, 1);
    //    if (ret) {
-   //        fprintf(stderr, "Couldn't set WQ to overcommit: %s\n", strerror(ret));
+   //        waveform_log(WF_LOG_ERROR, "Couldn't set WQ to overcommit: %s\n", strerror(ret));
    //        //  Purposely not returning here because this is a non-fatal error.  Things will still work,
    //        //  but potentially suck.
    //    }
@@ -892,8 +893,8 @@ int waveform_radio_start(struct radio_t* radio)
          &wq_attr, WORKQ_DEFAULT_PRIOQUEUE);
    if (ret)
    {
-      fprintf(stderr, "Couldn't set WQ priority: %s\n",
-              strerror(ret));
+      waveform_log(WF_LOG_ERROR, "Couldn't set WQ priority: %s\n",
+                   strerror(ret));
       //  Purposely not returning here because this is a non-fatal error.  Things will still work,
       //  but potentially suck.
    }
@@ -901,8 +902,8 @@ int waveform_radio_start(struct radio_t* radio)
    ret = pthread_workqueue_create_np(&radio->cb_wq, &wq_attr);
    if (ret)
    {
-      fprintf(stderr, "Couldn't create callback WQ: %s\n",
-              strerror(ret));
+      waveform_log(WF_LOG_SEVERE, "Couldn't create callback WQ: %s\n",
+                   strerror(ret));
       return -1;
    }
 
@@ -910,7 +911,7 @@ int waveform_radio_start(struct radio_t* radio)
    if (ret)
    {
       free(radio);
-      fprintf(stderr, "Creating thread: %s\n", strerror(ret));
+      waveform_log(WF_LOG_SEVERE, "Creating thread: %s\n", strerror(ret));
       return -1;
    }
 

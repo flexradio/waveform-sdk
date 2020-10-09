@@ -74,13 +74,13 @@ static void discovery_cb(evutil_socket_t sock, short what, void* ctx)
 
    if (!(what & EV_READ))
    {
-      fprintf(stderr, "Callback is not for a read!?\n");
+      waveform_log(WF_LOG_ERROR, "Callback is not for a read!?\n");
       return;
    }
 
    if ((bytes_received = recv(sock, &packet, sizeof(packet), 0)) == -1)
    {
-      fprintf(stderr, "Discovery read failed: %s\n", strerror(errno));
+      waveform_log(WF_LOG_ERROR, "Discovery read failed: %s\n", strerror(errno));
       return;
    }
 
@@ -91,36 +91,36 @@ static void discovery_cb(evutil_socket_t sock, short what, void* ctx)
 
    if (packet.class_id != DISCOVERY_CLASS_ID)
    {
-      fprintf(stderr, "Received packet with invalid ID: 0x%lX\n", packet.class_id);
+      waveform_log(WF_LOG_INFO, "Received packet with invalid ID: 0x%lX\n", packet.class_id);
       return;
    }
 
    if (packet.packet_type != VITA_PACKET_TYPE_EXT_DATA_WITH_STREAM_ID)
    {
-      fprintf(stderr, "Received packet is not correct type: 0x%x\n", packet.packet_type);
+      waveform_log(WF_LOG_INFO, "Received packet is not correct type: 0x%x\n", packet.packet_type);
       return;
    }
 
    if (packet.stream_id != DISCOVERY_STREAM_ID)
    {
-      fprintf(stderr, "Received packet does not have correct stream id: 0x%x\n", packet.stream_id);
+      waveform_log(WF_LOG_INFO, "Received packet does not have correct stream id: 0x%x\n", packet.stream_id);
       return;
    }
 
    sds discovery_string = sdsnewlen(packet.raw_payload, bytes_received - VITA_PACKET_HEADER_SIZE(&packet));
-   fprintf(stderr, "Discovery: %s\n", discovery_string);
+   waveform_log(WF_LOG_DEBUG, "Discovery: %s\n", discovery_string);
    int argc;
    sds* argv = sdssplitargs(discovery_string, &argc);
 
    if ((ip = find_kwarg(argc, argv, "ip")) == NULL)
    {
-      fprintf(stderr, "Cannot find IP in discovery packet\n");
+      waveform_log(WF_LOG_ERROR, "Cannot find IP in discovery packet\n");
       goto fail;
    }
 
    if ((port_string = find_kwarg(argc, argv, "port")) == NULL)
    {
-      fprintf(stderr, "No port number in discovery packet\n");
+      waveform_log(WF_LOG_ERROR, "No port number in discovery packet\n");
       goto fail;
    }
 
@@ -128,7 +128,7 @@ static void discovery_cb(evutil_socket_t sock, short what, void* ctx)
 
    if (inet_aton(ip, &addr->sin_addr) == 0)
    {
-      fprintf(stderr, "Received discovery has invalid IP: %s\n", ip);
+      waveform_log(WF_LOG_ERROR, "Received discovery has invalid IP: %s\n", ip);
       goto fail_addr;
    }
 
@@ -137,14 +137,14 @@ static void discovery_cb(evutil_socket_t sock, short what, void* ctx)
    if ((errno == ERANGE && port == ULONG_MAX) ||
        (errno != 0 && port == 0))
    {
-      fprintf(stderr, "Error parsing port number in discovery: %s\n",
-              strerror(errno));
+      waveform_log(WF_LOG_ERROR, "Error parsing port number in discovery: %s\n",
+                   strerror(errno));
       goto fail_addr;
    }
 
    if (port > USHRT_MAX)
    {
-      fprintf(stderr, "Port number %lu in discovery packet is out of range\n", port);
+      waveform_log(WF_LOG_ERROR, "Port number %lu in discovery packet is out of range\n", port);
       goto fail_addr;
    }
 
@@ -191,49 +191,49 @@ struct sockaddr_in* waveform_discover_radio(const struct timeval* timeout)
 
    if ((sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)
    {
-      fprintf(stderr, "Cannot open discovery socket: %s\n", strerror(errno));
+      waveform_log(WF_LOG_SEVERE, "Cannot open discovery socket: %s\n", strerror(errno));
       goto fail;
    }
 
    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one)) == -1)
    {
-      fprintf(stderr, "Cannot set discovery socket for reuse: %s\n", strerror(errno));
+      waveform_log(WF_LOG_SEVERE, "Cannot set discovery socket for reuse: %s\n", strerror(errno));
       goto fail_socket;
    }
 
    if (bind(sock, (struct sockaddr*) &local_address, sizeof(local_address)) == -1)
    {
-      fprintf(stderr, "Cannot bind socket on port %d: %s\n", DISCOVERY_PORT, strerror(errno));
+      waveform_log(WF_LOG_SEVERE, "Cannot bind socket on port %d: %s\n", DISCOVERY_PORT, strerror(errno));
       goto fail_socket;
    }
 
    if ((base = event_base_new()) == NULL)
    {
-      fprintf(stderr, "Cannot create discovery event base\n");
+      waveform_log(WF_LOG_SEVERE, "Cannot create discovery event base\n");
       goto fail_socket;
    }
 
    if ((evt = event_new(base, sock, EV_READ | EV_PERSIST, discovery_cb, &addr)) == NULL)
    {
-      fprintf(stderr, "Cannot create discovery event\n");
+      waveform_log(WF_LOG_SEVERE, "Cannot create discovery event\n");
       goto fail_base;
    }
 
    if (event_add(evt, NULL) == 1)
    {
-      fprintf(stderr, "Cannot add discovery event to base\n");
+      waveform_log(WF_LOG_SEVERE, "Cannot add discovery event to base\n");
       goto fail_evt;
    }
 
    if ((timeout_evt = evtimer_new(base, timeout_cb, &addr)) == NULL)
    {
-      fprintf(stderr, "Cannot create discovery timeout event\n");
+      waveform_log(WF_LOG_SEVERE, "Cannot create discovery timeout event\n");
       goto fail_evt;
    }
 
    if ((evtimer_add(timeout_evt, timeout)) == 1)
    {
-      fprintf(stderr, "Cannot add discovery timeout event to base\n");
+      waveform_log(WF_LOG_SEVERE, "Cannot add discovery timeout event to base\n");
       goto fail_disc_evt;
    }
 
