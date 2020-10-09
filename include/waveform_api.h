@@ -177,7 +177,10 @@ int waveform_register_rx_data_cb(struct waveform_t* waveform,
 
 /// @brief Register a unknown data packet callback for a waveform.
 /// @details Registers a callback that is called when there is an unknown VITA-49 packet from the radio.  This could
-///          be anything from a 1PPS packet, to other various packets that we don't handle in other ways.
+///          be anything from a 1PPS packet, to other various packets that we don't handle in other ways.  The framework
+///          handles RX and TX data callbacks with the above waveform_register_rx_data_cb() and waveform_register_tx_data_cb()
+///          but any other VITA-49 packets that are received will cause this callback to be triggered.  RX and TX callbacks
+///          handle microphone, speaker, transmitter and receiver data.
 /// @param waveform Pointer to the waveform structure returned by waveform_create()
 /// @param cb The callback function
 /// @param arg A user-defined argument to be passed to the callback on execution.  Can be NULL.
