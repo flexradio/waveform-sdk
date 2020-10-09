@@ -25,6 +25,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <pthread.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -77,6 +78,22 @@ static void vita_data_cb(void* arg)
    free(desc);
 }
 
+/// @brief Test whether a packet is a transmit or receive packet
+/// @details A transmit packet will have a 1 in the least significant bit of the class
+///          ID of the packet, where a receive packet will have a 0.  Return true or
+///          false depending on the type of packet.
+/// @param packet The packet to test
+/// @returns true for a transmit packet, else false.
+inline static bool is_transmit_packet(struct waveform_vita_packet* packet)
+{
+   if (packet->stream_id & 0x0001U)
+   {
+      return true;
+   }
+
+   return false;
+}
+
 /// @brief Libevent callback for when a VITA packet is read from the UDP socket.
 /// @details When a packet is recieved from the network, libevent calls this callback to let us know.  In here we do all of
 ///          our initial packet processing and sanity checks and bit flipping before calling the appropriate user callback
@@ -125,17 +142,15 @@ static void vita_read_cb(evutil_socket_t socket, short what, void* ctx)
    struct waveform_cb_list* cb_list;
    if (packet.class_id == AUDIO_CLASS_ID)
    {
-      // Receive packets have the LSB of the stream ID cleared.  Transmit packets
-      // have it set.
-      if (!(packet.stream_id & 0x0001U))
-      {
-         cb_list = cur_wf->rx_data_cbs;
-         vita->rx_stream_id = packet.stream_id;
-      }
-      else
+      if (is_transmit_packet(&packet))
       {
          cb_list = cur_wf->tx_data_cbs;
          vita->tx_stream_id = packet.stream_id;
+      }
+      else
+      {
+         cb_list = cur_wf->rx_data_cbs;
+         vita->rx_stream_id = packet.stream_id;
       }
    }
    else
