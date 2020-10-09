@@ -52,9 +52,9 @@ struct waveform_t* wf_list;
 // ****************************************
 // Public API Functions
 // ****************************************
-struct waveform_t* waveform_create(struct radio_t* radio, char* name,
-                                   char* short_name, char* underlying_mode,
-                                   char* version)
+struct waveform_t* waveform_create(struct radio_t* radio, const char* name,
+                                   const char* short_name, const char* underlying_mode,
+                                   const char* version)
 {
    struct waveform_t* wave = calloc(1, sizeof(*wave));
    if (!wave)
@@ -165,7 +165,7 @@ inline long waveform_send_api_command_cb(struct waveform_t* waveform,
    return ret;
 }
 
-static int waveform_register_cb(struct waveform_cb_list** cb_list, char* name,
+static int waveform_register_cb(struct waveform_cb_list** cb_list, const char* name,
                                 waveform_cmd_cb_t cb, void* arg)
 {
    // Freed in waveform_destroy()
@@ -196,7 +196,7 @@ static int waveform_register_cb(struct waveform_cb_list** cb_list, char* name,
    LL_APPEND(*cb_list, new_cb);
 }
 
-inline int waveform_register_status_cb(struct waveform_t* waveform, char* status_name,
+inline int waveform_register_status_cb(struct waveform_t* waveform, const char* status_name,
                                        waveform_cmd_cb_t cb, void* arg)
 {
    return waveform_register_cb(&waveform->status_cbs, status_name, cb, arg);
@@ -209,7 +209,7 @@ inline int waveform_register_state_cb(struct waveform_t* waveform,
 }
 
 inline int waveform_register_command_cb(struct waveform_t* waveform,
-                                        char* command_name, waveform_cmd_cb_t cb,
+                                        const char* command_name, waveform_cmd_cb_t cb,
                                         void* arg)
 {
    return waveform_register_cb(&waveform->cmd_cbs, command_name, cb, arg);

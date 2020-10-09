@@ -134,9 +134,9 @@ typedef void (*waveform_response_cb_t)(struct waveform_t* waveform,
 /// @return A pointer to an allocated structure representing the waveform.  This structure is opaque and you should not
 ///         attempt to modify it in any way.  You are responsible for freeing the structure using waveform_destroy()
 ///         when you are done with it.
-struct waveform_t* waveform_create(struct radio_t* radio, char* name,
-                                   char* short_name, char* underlying_mode,
-                                   char* version);
+struct waveform_t* waveform_create(struct radio_t* radio, const char* name,
+                                   const char* short_name, const char* underlying_mode,
+                                   const char* version);
 
 /// @brief Destroy a waveform
 /// @details Destroys a previously allocated waveform freeing all resources it consumes.
@@ -193,7 +193,7 @@ int waveform_register_unknown_data_cb(struct waveform_t* waveform, waveform_data
 /// @param cb The callback function
 /// @param arg A user-defined argument to be passed to the callback on execution.  Can be NULL.
 /// @return 0 upon success, -1 on failure
-int waveform_register_status_cb(struct waveform_t* waveform, char* status_name,
+int waveform_register_status_cb(struct waveform_t* waveform, const char* status_name,
                                 waveform_cmd_cb_t cb, void* arg);
 
 /// @brief Register a command callback.
@@ -206,7 +206,7 @@ int waveform_register_status_cb(struct waveform_t* waveform, char* status_name,
 /// @param arg A user-defined argument to be passed to the callback on execution.  Can be NULL.
 /// @return 0 upon success, -1 on failure
 int waveform_register_command_cb(struct waveform_t* waveform,
-                                 char* command_name, waveform_cmd_cb_t cb,
+                                 const char* command_name, waveform_cmd_cb_t cb,
                                  void* arg);
 
 /// @brief Sends a command to the radio
