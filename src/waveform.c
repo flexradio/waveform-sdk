@@ -117,12 +117,32 @@ abort_name:
    return NULL;
 }
 
+static inline void free_cb_list(struct waveform_cb_list* list)
+{
+
+   struct waveform_cb_list* cur;
+   struct waveform_cb_list* tmp;
+   LL_FOREACH_SAFE(list, cur, tmp)
+   {
+      LL_DELETE(list, cur);
+      if (cur->name != NULL)
+      {
+         sdsfree(cur->name);
+      }
+      free(cur);
+   }
+}
+
 void waveform_destroy(struct waveform_t* waveform)
 {
-   struct waveform_t* cur;
-   for (cur = wf_list; cur->next == waveform; cur = cur->next)
-      ;
-   cur->next = waveform->next;
+   LL_DELETE(wf_list, waveform);
+
+   free_cb_list(waveform->status_cbs);
+   free_cb_list(waveform->state_cbs);
+   free_cb_list(waveform->cmd_cbs);
+   free_cb_list(waveform->rx_data_cbs);
+   free_cb_list(waveform->tx_data_cbs);
+   free_cb_list(waveform->unk_data_cbs);
 
    free(waveform->name);
    free(waveform->short_name);
@@ -148,6 +168,7 @@ inline long waveform_send_api_command_cb(struct waveform_t* waveform,
 static int waveform_register_cb(struct waveform_cb_list** cb_list, char* name,
                                 waveform_cmd_cb_t cb, void* arg)
 {
+   // Freed in waveform_destroy()
    struct waveform_cb_list* new_cb = calloc(1, sizeof(*new_cb));
    if (!new_cb)
    {
@@ -156,6 +177,7 @@ static int waveform_register_cb(struct waveform_cb_list** cb_list, char* name,
 
    if (name != NULL)
    {
+      // Freed in waveform_destroy()
       new_cb->name = sdsnew(name);
       if (!new_cb->name)
       {
