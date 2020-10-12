@@ -35,6 +35,28 @@
 #include "utils.h"
 
 // ****************************************
+// Global Variables
+// ****************************************
+enum waveform_log_levels waveform_log_level = WF_LOG_ERROR;
+
+static const struct waveform_log_messages {
+   int level;
+   const char* message;
+} waveform_log_messages[] = {
+      {WF_LOG_TRACE, "trace"},
+      {WF_LOG_DEBUG, "debug"},
+      {WF_LOG_INFO, "info"},
+      {WF_LOG_WARNING, "warning"},
+      {WF_LOG_ERROR, "error"},
+      {WF_LOG_SEVERE, "severe"},
+      {WF_LOG_FATAL, "fatal"}};
+
+// ****************************************
+// Static Functions
+// ****************************************
+
+
+// ****************************************
 // Global Functions
 // ****************************************
 sds find_kwarg(int argc, sds* argv, sds key)
@@ -66,4 +88,24 @@ sds find_kwarg(int argc, sds* argv, sds key)
 inline short float_to_fixed(double input, unsigned char fractional_bits)
 {
    return (short) (round(input * (1u << fractional_bits)));
+}
+
+const char* waveform_log_level_describe(int level)
+{
+   for (size_t i = 0; i < sizeof(waveform_log_messages) / sizeof(waveform_log_messages)[0]; ++i)
+   {
+      if (level == waveform_log_messages[i].level)
+      {
+         return waveform_log_messages[i].message;
+      }
+   }
+   return "unknown";
+}
+
+// ****************************************
+// Public API Functions
+// ****************************************
+void waveform_set_log_level(enum waveform_log_levels level)
+{
+   waveform_log_level = level;
 }

@@ -98,26 +98,26 @@ static void register_meter_cb(struct waveform_t* waveform, unsigned int code, sd
    struct waveform_meter* entry = (struct waveform_meter*) arg;
    if (code != 0)
    {
-      fprintf(stderr, "Error registering meter: %s (%d)", message, code);
+      waveform_log(WF_LOG_ERROR, "Error registering meter: %s (%d)", message, code);
       goto register_failed;
    }
 
    id = strtoul(message, &endptr, 10);
    if ((errno == ERANGE && id == ULONG_MAX) || (errno != 0 && id == 0))
    {
-      fprintf(stderr, "Error finding meter id: %s\n", strerror(errno));
+      waveform_log(WF_LOG_ERROR, "Error finding meter id: %s\n", strerror(errno));
       goto register_failed;
    }
 
    if (endptr == message)
    {
-      fprintf(stderr, "Cannot find meter id in: %s\n", message);
+      waveform_log(WF_LOG_ERROR, "Cannot find meter id in: %s\n", message);
       goto register_failed;
    }
 
    if (id > UINT16_MAX)
    {
-      fprintf(stderr, "Meter ID is out of range: %lu\n", id);
+      waveform_log(WF_LOG_ERROR, "Meter ID is out of range: %lu\n", id);
       goto register_failed;
    }
 
@@ -155,7 +155,7 @@ void waveform_register_meter(struct waveform_t* wf, const char* name, float min,
    {
       if (strcmp(meter->name, name) == 0)
       {
-         fprintf(stderr, "Meter %s already exists\n", name);
+         waveform_log(WF_LOG_ERROR, "Meter %s already exists\n", name);
          return;
       }
    }
@@ -184,7 +184,7 @@ int waveform_meter_set_int_value(struct waveform_t* wf, char* name, short value)
 
    if (value > UINT16_MAX)
    {
-      fprintf(stderr, "Meter value out of range: %hu\n", value);
+      waveform_log(WF_LOG_ERROR, "Meter value out of range: %hu\n", value);
       return -1;
    }
 
@@ -197,7 +197,7 @@ int waveform_meter_set_int_value(struct waveform_t* wf, char* name, short value)
       }
    }
 
-   fprintf(stderr, "Meter not found: %s\n", name);
+   waveform_log(WF_LOG_ERROR, "Meter not found: %s\n", name);
    return -1;
 }
 
@@ -225,7 +225,7 @@ int waveform_meters_send(struct waveform_t* wf)
    {
       if (i > sizeof(packet->meter) / sizeof(packet->meter[0]))
       {
-         fprintf(stderr, "Meters exceed max size\n");
+         waveform_log(WF_LOG_ERROR, "Meters exceed max size\n");
          return -1;
       }
 

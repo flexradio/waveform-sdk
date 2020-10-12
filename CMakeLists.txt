@@ -9,6 +9,18 @@ include(GNUInstallDirs)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules")
 message(STATUS "CMAKE_MODULE_PATH=${CMAKE_MODULE_PATH}")
 
+function(define_file_basename_for_sources targetname)
+    get_target_property(source_files "${targetname}" SOURCES)
+    foreach (sourcefile ${source_files})
+        # Add the FILE_BASENAME=filename compile definition to the list.
+        get_filename_component(basename "${sourcefile}" NAME)
+        # Set the updated compile definitions on the source file.
+        set_property(
+                SOURCE "${sourcefile}" APPEND
+                PROPERTY COMPILE_DEFINITIONS "FILE_BASENAME=\"${basename}\"")
+    endforeach ()
+endfunction()
+
 set(WAVEFORM_SRCS
         src/utils.c
         src/waveform.c
@@ -49,6 +61,7 @@ set_target_properties(waveform PROPERTIES
         PUBLIC_HEADER "include/waveform_api.h"
         SOVERSION 1
         VERSION 1.0)
+
 target_link_libraries(waveform
         PUBLIC
         LibEvent::LibEvent
@@ -63,6 +76,7 @@ target_include_directories(waveform
         ${sds_SOURCE_DIR}
         ${utlist_SOURCE_DIR}/src
         )
+define_file_basename_for_sources(waveform)
 
 find_package(Doxygen)
 if (DOXYGEN_FOUND)
