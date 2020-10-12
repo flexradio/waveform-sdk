@@ -25,6 +25,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <pthread.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -34,6 +35,7 @@
 // Third Party Library Includes
 // ****************************************
 #include <event2/event.h>
+#include <utlist.h>
 
 // ****************************************
 // Project Includes
@@ -74,6 +76,22 @@ static void vita_data_cb(void* arg)
    (desc->cb->data_cb)(desc->wf, &desc->packet, desc->packet_size, desc->cb->arg);
 
    free(desc);
+}
+
+/// @brief Test whether a packet is a transmit or receive packet
+/// @details A transmit packet will have a 1 in the least significant bit of the class
+///          ID of the packet, where a receive packet will have a 0.  Return true or
+///          false depending on the type of packet.
+/// @param packet The packet to test
+/// @returns true for a transmit packet, else false.
+inline static bool is_transmit_packet(struct waveform_vita_packet* packet)
+{
+   if (packet->stream_id & 0x0001U)
+   {
+      return true;
+   }
+
+   return false;
 }
 
 /// @brief Libevent callback for when a VITA packet is read from the UDP socket.
@@ -121,43 +139,38 @@ static void vita_read_cb(evutil_socket_t socket, short what, void* ctx)
 
    struct waveform_t* cur_wf = container_of(vita, struct waveform_t, vita);
 
-   //  XXX This is ugly.  We should probably be using some sort of pool of packet structures so that
-   //  XXX we don't have to reallocate the memory all the time.  Maybe this really doesn't make a
-   //  XXX difference, but memory copies suck.
-   if (!(packet.stream_id & 0x0001U))
+   struct waveform_cb_list* cb_list;
+   if (packet.class_id == AUDIO_CLASS_ID)
    {
-      vita->rx_stream_id = packet.stream_id;
-      waveform_cb_for_each (cur_wf, rx_data_cbs, cur_cb)
+      if (is_transmit_packet(&packet))
       {
-         struct data_cb_wq_desc* desc = calloc(1, sizeof(*desc));
-         pthread_workitem_handle_t handle;
-         unsigned int gencountp;
-
-         desc->wf = cur_wf;
-         memcpy(&desc->packet, &packet, bytes_received);
-         desc->packet_size = bytes_received;
-         desc->cb = cur_cb;
-
-         pthread_workqueue_additem_np(vita_wq, vita_data_cb, desc, &handle, &gencountp);
+         cb_list = cur_wf->tx_data_cbs;
+         vita->tx_stream_id = packet.stream_id;
+      }
+      else
+      {
+         cb_list = cur_wf->rx_data_cbs;
+         vita->rx_stream_id = packet.stream_id;
       }
    }
    else
    {
-      //  Transmit packet processing
-      vita->tx_stream_id = packet.stream_id;
-      waveform_cb_for_each (cur_wf, tx_data_cbs, cur_cb)
-      {
-         struct data_cb_wq_desc* desc = calloc(1, sizeof(*desc));
-         pthread_workitem_handle_t handle;
-         unsigned int gencountp;
+      cb_list = cur_wf->unk_data_cbs;
+   }
 
-         desc->wf = cur_wf;
-         memcpy(&desc->packet, &packet, bytes_received);
-         desc->packet_size = bytes_received;
-         desc->cb = cur_cb;
+   struct waveform_cb_list* cur_cb;
+   LL_FOREACH(cb_list, cur_cb)
+   {
+      struct data_cb_wq_desc* desc = calloc(1, sizeof(*desc));
+      pthread_workitem_handle_t handle;
+      unsigned int gencountp;
 
-         pthread_workqueue_additem_np(vita_wq, vita_data_cb, desc, &handle, &gencountp);
-      }
+      desc->wf = cur_wf;
+      memcpy(&desc->packet, &packet, bytes_received);
+      desc->packet_size = bytes_received;
+      desc->cb = cur_cb;
+
+      pthread_workqueue_additem_np(vita_wq, vita_data_cb, desc, &handle, &gencountp);
    }
 }
 
@@ -428,4 +441,14 @@ inline uint32_t get_packet_ts_int(struct waveform_vita_packet* packet)
 inline uint64_t get_packet_ts_frac(struct waveform_vita_packet* packet)
 {
    return packet->timestamp_frac;
+}
+
+inline uint32_t get_stream_id(struct waveform_vita_packet* packet)
+{
+   return packet->stream_id;
+}
+
+inline uint64_t get_class_id(struct waveform_vita_packet* packet)
+{
+   return packet->class_id;
 }

@@ -89,6 +89,7 @@ struct waveform_t {
    struct waveform_cb_list* state_cbs;
    struct waveform_cb_list* rx_data_cbs;
    struct waveform_cb_list* tx_data_cbs;
+   struct waveform_cb_list* unk_data_cbs;
    struct waveform_cb_list* cmd_cbs;
 
    struct waveform_meter* meter_head;
