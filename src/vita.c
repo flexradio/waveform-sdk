@@ -260,6 +260,8 @@ static void* vita_evt_loop(void* arg)
 
    // XXX Check locking here.  Need to make sure threads are enabled in libevent
    waveform_send_api_command_cb(wf, NULL, NULL, "waveform set %s udpport=%hu", wf->name, vita->port);
+   waveform_send_api_command_cb(wf, NULL, NULL, "client udpport %hu", vita->port);
+
 
    event_base_dispatch(vita->base);
 
