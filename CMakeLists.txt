@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(libwaveform)
+project(libwaveform C)
 
 set(CMAKE_C_STANDARD 99)
 
@@ -80,10 +80,10 @@ define_file_basename_for_sources(waveform)
 
 find_package(Doxygen)
 if (DOXYGEN_FOUND)
-    set(DOXYGEN_OPTIMIZE_OUTPUT_FOR_C ON)
+    set(DOXYGEN_OPTIMIZE_OUTPUT_FOR_C YES)
     set(DOXYGEN_PROJECT_NAME "SmartSDR Waveform SDK")
     set(DOXYGEN_PROJECT_NUMBER "1.0")
-    set(DOXYGEN_GENERATE_LATEX OFF)
+    set(DOXYGEN_GENERATE_LATEX NO)
 
     doxygen_add_docs(doxygen include/waveform_api.h)
     install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/html TYPE DOC)
@@ -140,7 +140,7 @@ install(
 
 set(CPACK_GENERATOR "DEB")
 set(CPACK_PACKAGE_NAME "libwaveform")
-set(CPACK_PACKAGE_VERSION "1.0")
+set(CPACK_PACKAGE_VERSION "1.2")
 set(CPACK_PACKAGE_CONTACT "Annaliese McDermond <anna@flex-radio.com>")
 set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
 set(CPACK_DEBIAN_PACKAGE_GENERATE_SHLIBS ON)
