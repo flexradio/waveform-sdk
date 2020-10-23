@@ -80,10 +80,10 @@ define_file_basename_for_sources(waveform)
 
 find_package(Doxygen)
 if (DOXYGEN_FOUND)
-    set(DOXYGEN_OPTIMIZE_OUTPUT_FOR_C ON)
+    set(DOXYGEN_OPTIMIZE_OUTPUT_FOR_C YES)
     set(DOXYGEN_PROJECT_NAME "SmartSDR Waveform SDK")
     set(DOXYGEN_PROJECT_NUMBER "1.0")
-    set(DOXYGEN_GENERATE_LATEX OFF)
+    set(DOXYGEN_GENERATE_LATEX NO)
 
     doxygen_add_docs(doxygen include/waveform_api.h)
     install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/html TYPE DOC)
