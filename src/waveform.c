@@ -194,6 +194,8 @@ static int waveform_register_cb(struct waveform_cb_list** cb_list, const char* n
    new_cb->arg = arg;
 
    LL_APPEND(*cb_list, new_cb);
+
+   return 0;
 }
 
 inline int waveform_register_status_cb(struct waveform_t* waveform, const char* status_name,
