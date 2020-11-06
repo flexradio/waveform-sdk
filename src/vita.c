@@ -454,3 +454,8 @@ inline uint64_t get_class_id(struct waveform_vita_packet* packet)
 {
    return packet->class_id;
 }
+
+inline uint8_t get_packet_count(struct waveform_vita_packet* packet)
+{
+   return vita->data_sequence & 0x0fu;
+}

@@ -362,6 +362,16 @@ uint32_t get_stream_id(struct waveform_vita_packet* packet);
 /// @returns an integer representing the class ID of the packet in host byte order.
 uint64_t get_class_id(struct waveform_vita_packet* packet);
 
+/// @brief Gets the current packet count from a received packet.
+/// @details Gets the current packet count field from the VITA-49 packet.  This value is a 4-bit
+///          counter that is incremented for every subsequent packet transmitted by a VITA
+///          speaker.  The specification states that this is a 4-bit value, so the value returned
+///          from this function will be increasing between 0x00 and 0x0F, rolling over to 0x00 on an
+///          overflow.
+/// @param packet A packet returned from the radio in the waveform_data_cb_t callback.
+/// @returns an integer representing the number of packets received.
+uint8_t get_packet_count(struct waveform_vita_packet* packet);
+
 /// @brief Sets a structure for waveform context
 /// @details State is sometimes necessary for a waveform to preserve values.  This function allows you to register
 ///          a pointer to a context structure that will be available during all waveform callbacks.  This call is
