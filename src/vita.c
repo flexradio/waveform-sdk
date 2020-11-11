@@ -442,6 +442,13 @@ inline uint32_t get_packet_ts_int(struct waveform_vita_packet* packet)
 
 inline uint64_t get_packet_ts_frac(struct waveform_vita_packet* packet)
 {
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+   uint32_t* components = (uint32_t*) &(packet->timestamp_frac);
+   uint32_t tmp = components[0];
+
+   components[0] = components[1];
+   components[1] = tmp;
+#endif
    return packet->timestamp_frac;
 }
 
