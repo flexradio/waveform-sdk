@@ -312,6 +312,16 @@ static void vita_send_packet_cb(evutil_socket_t socket, short what, void* arg)
       *word = htonl(*word);
    }
 
+   //  Flip around the order of the words in the fractional timestamp field if we're on a little endian
+   //  platform.  Otherwise they're in the wrong order when put into a uint64_t.
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+   uint32_t* components = (uint32_t*) &(packet->timestamp_frac);
+   uint32_t tmp = components[0];
+
+   components[0] = components[1];
+   components[1] = tmp;
+#endif
+
    if ((bytes_sent = send(socket, packet, packet_len, 0)) == -1)
    {
       waveform_log(WF_LOG_ERROR, "Error sending vita packet: %s\n", strerror(errno));
@@ -442,13 +452,6 @@ inline uint32_t get_packet_ts_int(struct waveform_vita_packet* packet)
 
 inline uint64_t get_packet_ts_frac(struct waveform_vita_packet* packet)
 {
-#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-   uint32_t* components = (uint32_t*) &(packet->timestamp_frac);
-   uint32_t tmp = components[0];
-
-   components[0] = components[1];
-   components[1] = tmp;
-#endif
    return packet->timestamp_frac;
 }
 
