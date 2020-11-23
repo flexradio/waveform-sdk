@@ -129,6 +129,28 @@ register_failed:
    free(entry);
 }
 
+/// @brief Finds a meter structure given its name
+/// @param wf Reference to the waveform the meter is in
+/// @param name The name of the meter to find
+/// @returns A pointer to the waveform meter structure representing the meter or NULL if
+///          no meter was found.  The user should not free this structure.
+static struct waveform_meter* find_meter_by_name(struct waveform_t* wf, const char* name)
+{
+   struct waveform_meter* meter;
+
+   LL_FOREACH(wf->meter_head, meter)
+   {
+      if (strcmp(meter->name, name) == 0)
+      {
+         return meter;
+      }
+   }
+
+   waveform_log(WF_LOG_ERROR, "Meter not found: %s\n", name);
+
+   return NULL;
+}
+
 // ****************************************
 // Global Functions
 // ****************************************
@@ -151,13 +173,10 @@ void waveform_register_meter(struct waveform_t* wf, const char* name, float min,
 {
    struct waveform_meter* meter;
 
-   LL_FOREACH(wf->meter_head, meter)
+   if (find_meter_by_name(wf, name) != NULL)
    {
-      if (strcmp(meter->name, name) == 0)
-      {
-         waveform_log(WF_LOG_ERROR, "Meter %s already exists\n", name);
-         return;
-      }
+      waveform_log(WF_LOG_ERROR, "Meter %s already exists\n", name);
+      return;
    }
 
    struct waveform_meter* new_entry = calloc(1, sizeof(*new_entry));
@@ -182,28 +201,24 @@ int waveform_meter_set_int_value(struct waveform_t* wf, char* name, short value)
 {
    struct waveform_meter* meter;
 
-   if (value > UINT16_MAX)
-   {
-      waveform_log(WF_LOG_ERROR, "Meter value out of range: %hu\n", value);
+   if ((meter = find_meter_by_name(wf, name)) == NULL) {
+      waveform_log(WF_LOG_ERROR, "Meter not found: %s\n", name);
       return -1;
    }
 
-   LL_FOREACH(wf->meter_head, meter)
-   {
-      if (strcmp(meter->name, name) == 0)
-      {
-         meter->value = value;
-         return 0;
-      }
-   }
-
-   waveform_log(WF_LOG_ERROR, "Meter not found: %s\n", name);
-   return -1;
+   meter->value = value;
+   return 0;
 }
 
-inline int waveform_meter_set_float_value(struct waveform_t* wf, char* name, float value)
+int waveform_meter_set_float_value(struct waveform_t* wf, char* name, float value)
 {
    return waveform_meter_set_int_value(wf, name, float_to_fixed(value, 6));
+   struct waveform_meter* meter;
+
+   if ((meter = find_meter_by_name(wf, name)) == NULL) {
+      waveform_log(WF_LOG_ERROR, "Meter not found: %s\n", name);
+      return -1;
+   }
 }
 
 int waveform_meters_send(struct waveform_t* wf)
