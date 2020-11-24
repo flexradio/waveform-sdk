@@ -402,6 +402,13 @@ void vita_send_packet(struct vita* vita, struct waveform_vita_packet* packet)
 
 void vita_send_data_packet(struct vita* vita, float* samples, size_t num_samples, enum waveform_packet_type type)
 {
+   if (num_samples * sizeof(float) > MEMBER_SIZE(struct waveform_vita_packet, raw_payload))
+   {
+      waveform_log(WF_LOG_ERROR, "%lu samples exceeds maximum sending limit of %lu samples\n", num_samples,
+                   MEMBER_SIZE(struct waveform_vita_packet, raw_payload) / sizeof(float));
+      return;
+   }
+
    struct waveform_vita_packet* packet = calloc(1, sizeof(*packet));
 
    packet->packet_type = VITA_PACKET_TYPE_IF_DATA_WITH_STREAM_ID;
