@@ -111,6 +111,8 @@ static void discovery_cb(evutil_socket_t sock, short what, void* ctx)
    waveform_log(WF_LOG_DEBUG, "Discovery: %s\n", discovery_string);
    int argc;
    sds* argv = sdssplitargs(discovery_string, &argc);
+   struct sockaddr_in* addr = *addrptr = calloc(1, sizeof(struct sockaddr_in));
+   unsigned long port = 0;
 
    if ((ip = find_kwarg(argc, argv, "ip")) == NULL)
    {
@@ -124,8 +126,6 @@ static void discovery_cb(evutil_socket_t sock, short what, void* ctx)
       goto fail;
    }
 
-   struct sockaddr_in* addr = *addrptr = calloc(1, sizeof(struct sockaddr_in));
-
    if (inet_aton(ip, &addr->sin_addr) == 0)
    {
       waveform_log(WF_LOG_ERROR, "Received discovery has invalid IP: %s\n", ip);
@@ -133,7 +133,7 @@ static void discovery_cb(evutil_socket_t sock, short what, void* ctx)
    }
 
    char* endptr;
-   unsigned long port = strtoul(port_string, &endptr, 10);
+   port = strtoul(port_string, &endptr, 10);
    if ((errno == ERANGE && port == ULONG_MAX) ||
        (errno != 0 && port == 0))
    {
