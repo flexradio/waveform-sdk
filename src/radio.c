@@ -158,7 +158,10 @@ static void complete_response_entry(struct radio_t* radio,
 
    LL_SEARCH_SCALAR(radio->rq_head, current_entry, sequence, sequence);
    if (!current_entry)
+   {
+      free(desc);
       return;
+   }
 
    desc->code = code;
    desc->rq_entry = current_entry;
