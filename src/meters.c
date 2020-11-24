@@ -41,45 +41,39 @@
 #include "waveform_api.h"
 
 // ****************************************
+// Structs, Enums, typedefs
+// ****************************************
+struct unit_info {
+   const uint32_t radix;
+   const char* name;
+   const float min;
+   const float max;
+};
+
+// ****************************************
+// Constants
+// ****************************************
+static const struct unit_info units[] = {
+      [DB] = {
+            .name = "DB",
+            .radix = 7,
+            .min = -255.0f,
+            .max = 255.0f},
+      [DBM] = {.name = "DBM", .radix = 7, .min = -255.0f, .max = 255.0f},
+      [DBFS] = {.name = "DBFS", .radix = 7, .min = -255.0f, .max = 255.0f},
+      [VOLTS] = {.name = "VOLTS", .radix = 8, .min = -127.0f, .max = 127.0f},
+      [AMPS] = {.name = "AMPS", .radix = 8, .min = -127.0f, .max = 127.0f},
+      [RPM] = {.name = "RPM", .radix = 0, .min = (float) INT16_MIN, .max = (float) INT16_MAX},
+      [TEMP_F] = {.name = "TEMP_F", .radix = 6, .min = -511.0f, .max = 511.0f},
+      [TEMP_C] = {.name = "TEMP_C", .radix = 6, .min = -511.0f, .max = 511.0f},
+      [SWR] = {.name = "SWR", .radix = 7, .min = -255.0f, .max = 255.0f},
+      [WATTS] = {.name = "WATTS", .radix = 0, .min = (float) INT16_MIN, .max = (float) INT16_MAX},
+      [PERCENT] = {.name = "PERCENT", .radix = 0, .min = (float) INT16_MIN, .max = (float) INT16_MAX},
+      [NONE] = {.name = "NONE", .radix = 0, .min = (float) INT16_MIN, .max = (float) INT16_MAX}};
+
+// ****************************************
 // Static Functions
 // ****************************************
-
-/// @brief Convert Units to a String Value
-/// @details Function to convert our unit enum to a string value.  The string is
-///          required to send to the API in the command.
-/// @param waveform_units A unit identifier
-/// @returns String representation of those units for use in the API
-static const char* unit_to_string(enum waveform_units unit)
-{
-   switch (unit)
-   {
-      case DB:
-         return ("DB");
-      case DBM:
-         return ("DBM");
-      case DBFS:
-         return ("DBFS");
-      case VOLTS:
-         return ("VOLTS");
-      case AMPS:
-         return ("AMPS");
-      case RPM:
-         return ("RPM");
-      case TEMP_F:
-         return ("TEMP_F");
-      case TEMP_C:
-         return ("TEMP_C");
-      case SWR:
-         return ("SWR");
-      case WATTS:
-         return ("WATTS");
-      case PERCENT:
-         return ("PERCENT");
-      case NONE:
-      default:
-         return ("NONE");
-   }
-}
 
 /// @brief Callback for meter registration
 /// @details When we send a call to register a meter in waveform_create_meters, we need a callback to
@@ -129,6 +123,28 @@ register_failed:
    free(entry);
 }
 
+/// @brief Finds a meter structure given its name
+/// @param wf Reference to the waveform the meter is in
+/// @param name The name of the meter to find
+/// @returns A pointer to the waveform meter structure representing the meter or NULL if
+///          no meter was found.  The user should not free this structure.
+static struct waveform_meter* find_meter_by_name(struct waveform_t* wf, const char* name)
+{
+   struct waveform_meter* meter;
+
+   LL_FOREACH(wf->meter_head, meter)
+   {
+      if (strcmp(meter->name, name) == 0)
+      {
+         return meter;
+      }
+   }
+
+   waveform_log(WF_LOG_ERROR, "Meter not found: %s\n", name);
+
+   return NULL;
+}
+
 // ****************************************
 // Global Functions
 // ****************************************
@@ -140,7 +156,7 @@ void waveform_create_meters(struct waveform_t* wf)
    {
       waveform_send_api_command_cb(wf, register_meter_cb, meter,
                                    "meter create name=%s type=WAVEFORM min=%f max=%f unit=%s fps=20", meter->name,
-                                   meter->min, meter->max, unit_to_string(meter->unit));
+                                   meter->min, meter->max, units[meter->unit].name);
    }
 }
 
@@ -151,13 +167,10 @@ void waveform_register_meter(struct waveform_t* wf, const char* name, float min,
 {
    struct waveform_meter* meter;
 
-   LL_FOREACH(wf->meter_head, meter)
+   if (find_meter_by_name(wf, name) != NULL)
    {
-      if (strcmp(meter->name, name) == 0)
-      {
-         waveform_log(WF_LOG_ERROR, "Meter %s already exists\n", name);
-         return;
-      }
+      waveform_log(WF_LOG_ERROR, "Meter %s already exists\n", name);
+      return;
    }
 
    struct waveform_meter* new_entry = calloc(1, sizeof(*new_entry));
@@ -182,28 +195,34 @@ int waveform_meter_set_int_value(struct waveform_t* wf, char* name, short value)
 {
    struct waveform_meter* meter;
 
-   if (value > UINT16_MAX)
-   {
-      waveform_log(WF_LOG_ERROR, "Meter value out of range: %hu\n", value);
+   if ((meter = find_meter_by_name(wf, name)) == NULL) {
+      waveform_log(WF_LOG_ERROR, "Meter not found: %s\n", name);
       return -1;
    }
 
-   LL_FOREACH(wf->meter_head, meter)
-   {
-      if (strcmp(meter->name, name) == 0)
-      {
-         meter->value = value;
-         return 0;
-      }
-   }
-
-   waveform_log(WF_LOG_ERROR, "Meter not found: %s\n", name);
-   return -1;
+   meter->value = value;
+   return 0;
 }
 
-inline int waveform_meter_set_float_value(struct waveform_t* wf, char* name, float value)
+int waveform_meter_set_float_value(struct waveform_t* wf, char* name, float value)
 {
-   return waveform_meter_set_int_value(wf, name, float_to_fixed(value, 6));
+   struct waveform_meter* meter;
+
+   if ((meter = find_meter_by_name(wf, name)) == NULL)
+   {
+      waveform_log(WF_LOG_ERROR, "Meter not found: %s\n", name);
+      return -1;
+   }
+
+   if (value > units[meter->unit].max || value < units[meter->unit].min)
+   {
+      waveform_log(WF_LOG_ERROR, "Meter value %f is out of range (%f to %f)\n", value, units[meter->unit].min,
+                   units[meter->unit].max);
+      return -1;
+   }
+
+   meter->value = float_to_fixed(value, units[meter->unit].radix);
+   return 0;
 }
 
 int waveform_meters_send(struct waveform_t* wf)

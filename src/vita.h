@@ -79,6 +79,10 @@ struct waveform_vita_packet_sans_ts {
    union
    {
       uint8_t raw_payload[1452];
+      //  Note that these are *intentionally* backwards.  This way when the byte
+      //  swap happens, everything ends up in the correct order that SSDR expects.
+      //  This order probably isn't technically correct (VITA likes to work per-word),
+      //  But that's how it's coded in SSDR.
       struct {
          uint16_t value;
          uint16_t id;
