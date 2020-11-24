@@ -404,6 +404,7 @@ static void radio_call_command_cb(void* arg)
    if (argc < 1)
    {
       sdsfree(desc->message);
+      sdsfreesplitres(argv, argc);
       free(desc);
       return;
    }
