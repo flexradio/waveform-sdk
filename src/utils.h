@@ -35,6 +35,7 @@
 // Macros
 // ****************************************
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
+#define MEMBER_SIZE(type, member) sizeof(((type*) 0)->member)
 
 #define container_of(ptr, type, member) ({                      \
         const typeof( ((type *)0)->member ) *__mptr = (ptr);    \
