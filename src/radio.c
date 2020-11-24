@@ -336,6 +336,7 @@ static void process_status_message(struct radio_t* radio, sds message)
    sds* argv = sdssplitargs(message, &argc);
    if (argc < 1)
    {
+      sdsfreesplitres(argv, argc);
       return;
    }
 
