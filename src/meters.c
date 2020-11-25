@@ -242,9 +242,10 @@ int waveform_meters_send(struct waveform_t* wf)
 
    LL_FOREACH(wf->meter_head, meter)
    {
-      if (i > sizeof(packet->meter) / sizeof(packet->meter[0]))
+      if (i >= sizeof(packet->meter) / sizeof(packet->meter[0]))
       {
          waveform_log(WF_LOG_ERROR, "Meters exceed max size\n");
+         free(packet);
          return -1;
       }
 

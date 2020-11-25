@@ -158,7 +158,10 @@ static void complete_response_entry(struct radio_t* radio,
 
    LL_SEARCH_SCALAR(radio->rq_head, current_entry, sequence, sequence);
    if (!current_entry)
+   {
+      free(desc);
       return;
+   }
 
    desc->code = code;
    desc->rq_entry = current_entry;
@@ -307,6 +310,7 @@ static void radio_call_status_cb(void* arg)
    if (argc < 1)
    {
       sdsfree(desc->message);
+      sdsfreesplitres(argv, argc);
       free(desc);
       return;
    }
@@ -332,6 +336,7 @@ static void process_status_message(struct radio_t* radio, sds message)
    sds* argv = sdssplitargs(message, &argc);
    if (argc < 1)
    {
+      sdsfreesplitres(argv, argc);
       return;
    }
 
@@ -404,6 +409,7 @@ static void radio_call_command_cb(void* arg)
    if (argc < 1)
    {
       sdsfree(desc->message);
+      sdsfreesplitres(argv, argc);
       free(desc);
       return;
    }

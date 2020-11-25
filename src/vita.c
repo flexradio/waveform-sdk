@@ -377,6 +377,8 @@ int vita_init(struct waveform_t* wf)
       waveform_log(WF_LOG_ERROR, "Creating thread: %s\n", strerror(ret));
       return -1;
    }
+
+   return 0;
 }
 
 void vita_destroy(struct waveform_t* wf)
