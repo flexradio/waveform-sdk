@@ -255,6 +255,7 @@ static void* vita_evt_loop(void* arg)
    waveform_send_api_command_cb(wf, NULL, NULL, "waveform set %s udpport=%hu", wf->name, vita->port);
    waveform_send_api_command_cb(wf, NULL, NULL, "client udpport %hu", vita->port);
 
+
    event_base_dispatch(vita->base);
 
    waveform_log(WF_LOG_DEBUG, "VITA thread ending...\n");
@@ -265,6 +266,7 @@ fail_base:
    event_base_free(vita->base);
 fail_socket:
    close(vita->sock);
+   vita->sock = 0;
 fail:
    return NULL;
 }
