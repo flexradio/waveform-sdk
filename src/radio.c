@@ -711,30 +711,42 @@ static void radio_init(struct radio_t* radio)
 /// @param bev Buffer event reference from libevent
 /// @param what What kind of event occurred
 /// @param ctx A reference to the radio structure for which this TCP connection serves as the API connection.
-static void radio_event_cb(struct bufferevent* bev __attribute__((unused)),
+static void radio_event_cb(struct bufferevent* bev,
                            short what, void* ctx)
 {
    struct radio_t* radio = (struct radio_t*) ctx;
-   switch (what)
+
+   if (what & BEV_EVENT_CONNECTED)
    {
-      case BEV_EVENT_CONNECTED:
-         waveform_log(WF_LOG_INFO, "Connected to radio at %s\n",
-                      inet_ntoa(radio->addr.sin_addr));
-         radio_init(radio);
-         break;
-      case BEV_EVENT_ERROR:
-         waveform_log(WF_LOG_SEVERE, "Error connecting to radio\n");
-         break;
-      case BEV_EVENT_TIMEOUT:
-         waveform_log(WF_LOG_SEVERE, "Timeout connecting to radio\n");
-         break;
-      case BEV_EVENT_EOF:
-         waveform_log(WF_LOG_SEVERE, "Remote side disconnected\n");
-         break;
-      default:
-         waveform_log(WF_LOG_FATAL, "Unknown error\n");
-         break;
+      waveform_log(WF_LOG_INFO, "Connected to radio at %s\n",
+                   inet_ntoa(radio->addr.sin_addr));
+      radio_init(radio);
+      return;
    }
+
+   if (what & BEV_EVENT_TIMEOUT)
+   {
+      waveform_log(WF_LOG_SEVERE, "Connection to the radio at %s timed out\n", inet_ntoa(radio->addr.sin_addr));
+      event_base_loopbreak(radio->base);
+      return;
+   }
+
+   if (what & BEV_EVENT_EOF)
+   {
+      waveform_log(WF_LOG_SEVERE, "Radio has disconnected\n");
+      event_base_loopbreak(radio->base);
+      return;
+   }
+
+   if (what & BEV_EVENT_ERROR)
+   {
+      waveform_log(WF_LOG_SEVERE, "Radio TCP connection has encountered an error: %s\n",
+                   evutil_socket_error_to_string(evutil_socket_geterror(bufferevent_getfd(bev))));
+      event_base_loopbreak(radio->base);
+      return;
+   }
+
+   waveform_log(WF_LOG_INFO, "Received unknown radio event\n");
 }
 
 /// @brief Callback called when the radio has some data
@@ -805,6 +817,16 @@ static void* radio_evt_loop(void* arg)
    }
 
    event_base_dispatch(radio->base);
+
+   //  Clean up all the VITA loops hanging out there in waveforms.
+   struct waveform_t* cur_wf;
+   LL_FOREACH(wf_list, cur_wf)
+   {
+      if (cur_wf->radio == radio)
+      {
+         vita_destroy(cur_wf);
+      }
+   }
 
 bev_abort:
    bufferevent_free(radio->bev);
