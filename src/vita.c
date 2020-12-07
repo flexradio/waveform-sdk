@@ -25,6 +25,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <pthread.h>
+#include <semaphore.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -53,30 +54,21 @@ struct data_cb_wq_desc {
    struct waveform_vita_packet packet;
    size_t packet_size;
    struct waveform_t* wf;
+   struct data_cb_wq_desc* next;
 };
 
 // ****************************************
 // Static Variables
 // ****************************************
-static pthread_workqueue_t vita_wq = NULL;
+static sem_t wq_sem;
+static pthread_mutex_t wq_lock;
+static struct data_cb_wq_desc* wq = NULL;
+static bool wq_running = false;
+static pthread_t wq_thread;
 
 // ****************************************
 // Static Functions
 // ****************************************
-/// @brief Work queue callback for VITA packets
-/// @details When a VITA packet arrives, we do initial parsing and then pass it on to the user waveform code
-///          for processing.  When we do so, we place it into the high priority work queue and run it on a different
-///          thread so that the user code does not slow down the packet processing loop.  Since the work queue API
-///          can only take a single argument, we use a structure to contain the info we need.
-/// @param arg The work queue descriptor for a VITA callback.
-static void vita_data_cb(void* arg)
-{
-   struct data_cb_wq_desc* desc = (struct data_cb_wq_desc*) arg;
-
-   (desc->cb->data_cb)(desc->wf, &desc->packet, desc->packet_size, desc->cb->arg);
-
-   free(desc);
-}
 
 /// @brief Test whether a packet is a transmit or receive packet
 /// @details A transmit packet will have a 1 in the least significant bit of the class
@@ -161,16 +153,18 @@ static void vita_read_cb(evutil_socket_t socket, short what, void* ctx)
    struct waveform_cb_list* cur_cb;
    LL_FOREACH(cb_list, cur_cb)
    {
-      struct data_cb_wq_desc* desc = calloc(1, sizeof(*desc));
-      pthread_workitem_handle_t handle;
-      unsigned int gencountp;
+      struct data_cb_wq_desc* desc = calloc(1, sizeof(*desc));// Freed when taken out of linked list
 
       desc->wf = cur_wf;
       memcpy(&desc->packet, &packet, bytes_received);
       desc->packet_size = bytes_received;
       desc->cb = cur_cb;
 
-      pthread_workqueue_additem_np(vita_wq, vita_data_cb, desc, &handle, &gencountp);
+      pthread_mutex_lock(&wq_lock);
+      LL_APPEND(wq, desc);
+      pthread_mutex_unlock(&wq_lock);
+
+      sem_post(&wq_sem);
    }
 }
 
@@ -258,10 +252,8 @@ static void* vita_evt_loop(void* arg)
    vita->data_sequence = 0;
    vita->meter_sequence = 0;
 
-   // XXX Check locking here.  Need to make sure threads are enabled in libevent
    waveform_send_api_command_cb(wf, NULL, NULL, "waveform set %s udpport=%hu", wf->name, vita->port);
    waveform_send_api_command_cb(wf, NULL, NULL, "client udpport %hu", vita->port);
-
 
    event_base_dispatch(vita->base);
 
@@ -275,6 +267,69 @@ fail_socket:
    close(vita->sock);
 fail:
    return NULL;
+}
+
+/// @brief Data callback event loop
+/// @details An event loop for running user-defined data callbacks.  This runs and
+///          takes tasks from the wq linked list and executes them in order.  This
+///          thread terminates when the main VITA loop terminates.
+static void* vita_cb_loop(void* arg __attribute__((unused)))
+{
+   struct timespec timeout;
+   int ret;
+
+   //  Run this as a lower priority than the thread servicing the socket
+   struct sched_param thread_fifo_priority = {
+         .sched_priority = sched_get_priority_max(SCHED_FIFO) - 8};
+   ret = pthread_setschedparam(pthread_self(), SCHED_FIFO, &thread_fifo_priority);
+   if (ret)
+   {
+      waveform_log(WF_LOG_DEBUG, "Setting thread to realtime: %s\n", strerror(ret));
+   }
+
+   wq_running = true;
+   while (wq_running)
+   {
+
+      if (clock_gettime(CLOCK_REALTIME, &timeout) == -1)
+      {
+         waveform_log(WF_LOG_ERROR, "Couldn't gert time.\n");
+         continue;
+      }
+
+      timeout.tv_sec += 1;
+
+      while ((ret = sem_timedwait(&wq_sem, &timeout)) == -1 && errno == EINTR)
+         ;
+
+      if (ret == -1)
+      {
+         if (errno == ETIMEDOUT)
+         {
+            continue;
+         }
+         else
+         {
+            waveform_log(WF_LOG_ERROR, "Error acquiring semaphore: %s\n", strerror(errno));
+            continue;
+         }
+      }
+
+      if (wq == NULL)
+      {
+         waveform_log(WF_LOG_WARNING, "Thread awakened but nothing is in the queue?\n");
+         continue;
+      }
+
+      struct data_cb_wq_desc* current_task = wq;
+      pthread_mutex_lock(&wq_lock);
+      LL_DELETE(wq, current_task);
+      pthread_mutex_unlock(&wq_lock);
+
+      (current_task->cb->data_cb)(current_task->wf, &current_task->packet, current_task->packet_size, current_task->cb->arg);
+
+      free(current_task);
+   }
 }
 
 /// @brief Perform a write to the VITA socket
@@ -344,31 +399,13 @@ int vita_init(struct waveform_t* wf)
 {
    int ret;
 
-   if (!vita_wq)
+   sem_init(&wq_sem, 0, 0);
+
+   ret = pthread_create(&wq_thread, NULL, vita_cb_loop, NULL);
+   if (ret)
    {
-      pthread_workqueue_attr_t wq_attr;
-
-      ret = pthread_workqueue_attr_init_np(&wq_attr);
-      if (ret)
-      {
-         waveform_log(WF_LOG_ERROR, "Creating WQ attributes: %s\n", strerror(ret));
-         return -1;
-      }
-
-      ret = pthread_workqueue_attr_setqueuepriority_np(&wq_attr, WORKQ_HIGH_PRIOQUEUE);
-      if (ret)
-      {
-         waveform_log(WF_LOG_WARNING, "Couldn't set WQ priority: %s\n", strerror(ret));
-         //  Purposely not returning here because this is a non-fatal error.  Things will still work,
-         //  but potentially really suck.
-      }
-
-      ret = pthread_workqueue_create_np(&vita_wq, &wq_attr);
-      if (ret)
-      {
-         waveform_log(WF_LOG_ERROR, "Couldn't create callback WQ: %s\n", strerror(ret));
-         return -1;
-      }
+      waveform_log(WF_LOG_FATAL, "Cannot create work queue thread: %s\n", strerror(ret));
+      return -1;
    }
 
    ret = pthread_create(&wf->vita.thread, NULL, vita_evt_loop, wf);
@@ -383,7 +420,27 @@ int vita_init(struct waveform_t* wf)
 
 void vita_destroy(struct waveform_t* wf)
 {
+   if (wf->vita.sock == 0)
+   {
+      waveform_log(WF_LOG_INFO, "Waveform is not running, not trying to destory again\n");
+      return;
+   }
+
+   // Stop both the threads
+   wq_running = false;
+   pthread_join(wq_thread, NULL);
+   sem_destroy(&wq_sem);
+
    event_base_loopexit(wf->vita.base, NULL);
+
+   //  Clean up the callback work queue
+   struct data_cb_wq_desc* task;
+   struct data_cb_wq_desc* tmp;
+   LL_FOREACH_SAFE(wq, task, tmp)
+   {
+      LL_DELETE(wq, task);
+      free(task);
+   }
 }
 
 void vita_send_packet(struct vita* vita, struct waveform_vita_packet* packet)
