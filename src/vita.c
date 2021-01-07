@@ -120,6 +120,8 @@ static void vita_read_cb(evutil_socket_t socket, short what, void* ctx)
       *word = ntohl(*word);
    }
 
+   swap_frac_timestamp((uint32_t*) &(packet.timestamp_frac));
+
    unsigned long payload_length = (packet.length * sizeof(uint32_t)) - VITA_PACKET_HEADER_SIZE(&packet);
 
    if (payload_length != bytes_received - VITA_PACKET_HEADER_SIZE(&packet))
@@ -369,15 +371,7 @@ static void vita_send_packet_cb(evutil_socket_t socket, short what, void* arg)
       *word = htonl(*word);
    }
 
-   //  Flip around the order of the words in the fractional timestamp field if we're on a little endian
-   //  platform.  Otherwise they're in the wrong order when put into a uint64_t.
-#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-   uint32_t* components = (uint32_t*) &(packet->timestamp_frac);
-   uint32_t tmp = components[0];
-
-   components[0] = components[1];
-   components[1] = tmp;
-#endif
+   swap_frac_timestamp((uint32_t*) &(packet->timestamp_frac));
 
    if ((bytes_sent = send(socket, packet, packet_len, 0)) == -1)
    {

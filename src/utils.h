@@ -75,4 +75,8 @@ short float_to_fixed(double input, unsigned char fractional_bits);
 /// @returns A string value of the value of the argument with the given keyword or NULL on failure to find an element with that keyword.
 sds find_kwarg(int argc, sds* argv, sds key);
 
+/// @brief Swap the bytes of a VITA 64-bit fractional timestamp
+/// @param components A pointer to the VITA timestamp.  Note that *THIS VALUE WILL BE MODIFIED IN PLACE*.
+void swap_frac_timestamp(uint32_t* timestamp);
+
 #endif// UTILS_H_
