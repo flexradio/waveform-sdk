@@ -327,12 +327,13 @@ void waveform_send_data_packet(struct waveform_t* waveform, float* samples,
 /// @brief Gets the length of a received packet
 /// @details Returns the length of the data in a packet received from the radio.
 /// @param packet A packet returned from the radio in the waveform_data_cb_t callback.
-/// @returns Length of the data from the radio in bytes.
+/// @returns Length of the data from the radio in 32-bit words.
 uint16_t get_packet_len(struct waveform_vita_packet* packet);
 
 /// @brief Get the packet data
 /// @details Returns an array of floating point values representing either L/R or I/Q pairs depending on the underlying
-///          mode.
+///          mode.  The length of the array returned can be ascertained by calling get_packet_len().  The data in the
+///          returned array will be freed when the callback returns to the library.
 /// @param packet A packet returned from the radio in the waveform_data_cb_t callback.
 /// @returns 32-bit floating point values from the radio represening data from the microphone or receiver in host byte
 ///          order.
