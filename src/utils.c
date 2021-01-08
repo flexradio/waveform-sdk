@@ -109,3 +109,17 @@ void waveform_set_log_level(enum waveform_log_levels level)
 {
    waveform_log_level = level;
 }
+
+//  Flip around the order of the words in the fractional timestamp field if we're on a little endian
+//  platform.  Otherwise they're in the wrong order when put into a uint64_t.
+void swap_frac_timestamp(uint32_t* components)
+{
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+   uint32_t tmp = components[0];
+
+   components[0] = components[1];
+   components[1] = tmp;
+#else
+   return;
+#endif
+}
