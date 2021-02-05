@@ -55,6 +55,7 @@ enum waveform_units
    NONE
 };
 
+/// @brief The possible states passed to a state callback waveform_state_cb_t
 enum waveform_state
 {
    ACTIVE,
@@ -63,12 +64,14 @@ enum waveform_state
    UNKEY_REQUESTED
 };
 
+/// @brief The type of packet to send to the radio, either to the speaker or the transmitter.
 enum waveform_packet_type
 {
    SPEAKER_DATA,
    TRANSMITTER_DATA
 };
 
+/// @brief The levels for log messages.  Higher is more severe.
 enum waveform_log_levels
 {
    WF_LOG_TRACE = 100,
@@ -80,11 +83,12 @@ enum waveform_log_levels
    WF_LOG_FATAL = 700
 };
 
+/// @brief A structure to hold a description of a meter
 struct waveform_meter_entry {
-   char* name;
-   float min;
-   float max;
-   enum waveform_units unit;
+   char* name;              ///< The name of the meter
+   float min;               ///< The minimum value the meter can take
+   float max;               ///< The maximum value the meter can take
+   enum waveform_units unit;///< The units in which the meter is measured.
 };
 
 /// @brief Called when the waveform state changes
@@ -267,7 +271,7 @@ long waveform_send_api_command_cb(struct waveform_t* waveform,
 ///          invoked the command.
 /// @param waveform Pointer to the waveform structure returned by waveform_create()
 /// @param at The time in the future in which to execute the commamnd.
-/// @param cb Pointer to a command completion callback function.  If this is NULL, no callback will be performed.
+/// @param complete_cb Pointer to a command completion callback function.  If this is NULL, no callback will be performed.
 /// @param queued_cb Pointer to a command queued callback function.  If this is NULL, no callback will be performed.
 /// @param arg A user-defined argument to be passed to the callbacks on execution.  Can be NULL.
 /// @param command A format string in printf(3) format.
@@ -278,7 +282,7 @@ long waveform_send_timed_api_command_cb(struct waveform_t* waveform, struct time
 
 /// @brief Adds a new meter to a meter list
 /// @details Adds a new meter to a meter list and registers it with the radio.
-/// @param meter_list An already created meter list
+/// @param waveform The waveform containing the meter
 /// @param name the name of the meter
 /// @param min The minimum value the meter can take on
 /// @param max The maximum value the meter can take on
@@ -289,13 +293,20 @@ void waveform_register_meter(struct waveform_t* waveform, const char* name,
 
 /// @brief Sets the value of a meter given the name
 /// @details This has the same functionality as a waveform_meter_find() followed by a waveform_meter_set_value()
-/// @param meter_list The list of meters in which to find the meter
+/// @param waveform The waveform containing the meter
 /// @param name The name of the meter to set
 /// @param value The value of the meter
 /// @returns -1 if the meter name cannot be found in the list, otherwise 0 for success.
 int waveform_meter_set_float_value(struct waveform_t* waveform, char* name,
                                    float value);
 
+/// @brief Sets the value of a meter given the name
+/// @details Sets the meter value given a short.  This is a *raw* function and will set whatever you send it
+///          without doing any sanity checking.  For advanced usage only.  Not recommended for normal use.
+/// @param waveform The waveform containing the meter
+/// @param name The name of the meter to set
+/// @param value The value of the meter
+/// @returns -1 if the meter name cannot be found in the list, otherwise 0 for success.
 int waveform_meter_set_int_value(struct waveform_t* waveform, char* name,
                                  short value);
 
@@ -303,7 +314,7 @@ int waveform_meter_set_int_value(struct waveform_t* waveform, char* name,
 /// @details The meter values in the list will be sent to the radio.  Note that this will cause one or more UDP packets
 ///          to be send and is therefore not a "cheap" operation.  As many meters as possible should be combined into
 ///          a list and sent simultaneously.
-/// @param meter_list The list of meters to send
+/// @param waveform The waveform containing the meter
 /// @returns 0 for success or -1 for failure
 int waveform_meters_send(struct waveform_t* waveform);
 
@@ -343,7 +354,8 @@ int waveform_radio_start(struct radio_t* radio);
 ///          representing either audio data to provide to the speaker, or transmit data to supply to the transmitter.
 ///          This function allows you to queue that data for transmission to the radio.
 /// @param waveform The waveform sending the data
-/// @param samples Samples for the radio.  This is either baseband data in L/R format, or complex data in I/Q format
+/// @param samples An array containing the samples to send.  This must be num_samples * sizeof(uint32_t) long.
+/// @param num_samples Samples for the radio.  This is either baseband data in L/R format, or complex data in I/Q format
 ///                depending on the underlying mode.  These samples should be in 32-bit float format in host byte order
 ///                as the library will do any necessary byte swapping for transmission.
 /// @param type The type of packet to send.  This is either SPEAKER_DATA for playing on the audio output of the radio
@@ -422,6 +434,11 @@ void waveform_set_context(struct waveform_t* wf, void* ctx);
 /// @returns The context structure
 void* waveform_get_context(struct waveform_t* wf);
 
+/// @brief Registers a set of meters
+/// @details Registers an array of meters.  This is essentially a loop around waveform_register_meter as a convenience shortcut.
+/// @param wf The waveform on which to register the meter.
+/// @param list The array of meters to register.
+/// @param num_meters The number of meters in the list
 void waveform_register_meter_list(struct waveform_t* wf,
                                   const struct waveform_meter_entry list[],
                                   int num_meters);
