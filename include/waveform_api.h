@@ -379,6 +379,13 @@ uint32_t get_packet_ts_int(struct waveform_vita_packet* packet);
 /// @returns An integer representing the fractional timestamp of the packet in host byte order.
 uint64_t get_packet_ts_frac(struct waveform_vita_packet* packet);
 
+/// @brief Gets the timestamp from a received pakcet.
+/// @details Returns the fractional timestamp from the VITA-49 packet from the radio in a user-provided structure.
+/// @param packet A packet returned from the radio in the waveform_data_cb_t callback.
+/// @param ts A user-provided structure in which to store the timestamp.  The user must have allocated memory for this
+///           structure and is responsible for freeing it.
+void get_packet_ts(struct waveform_vita_packet* packet, struct timespec* ts);
+
 /// @brief Gets the stream ID from a received packet.
 /// @details Returns the stream ID field from the VITA-49 packet from the radio.
 /// @param packet A packet returned from the radio in the waveform_data_cb_t callback.
