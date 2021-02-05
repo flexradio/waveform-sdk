@@ -24,6 +24,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/time.h>
 
 // ****************************************
 // Third Party Library Includes
@@ -158,7 +159,21 @@ inline long waveform_send_api_command_cb(struct waveform_t* waveform,
    long ret;
 
    va_start(ap, command);
-   ret = waveform_radio_send_api_command_cb_va(waveform, cb, arg, command,
+   ret = waveform_radio_send_api_command_cb_va(waveform, NULL, cb, NULL, arg, command,
+                                               ap);
+   va_end(ap);
+
+   return ret;
+}
+
+long waveform_send_timed_api_command_cb(struct waveform_t* waveform, struct timespec* at, waveform_response_cb_t complete_cb,
+                                        waveform_response_cb_t queued_cb, void* arg, char* command, ...)
+{
+   va_list ap;
+   long ret;
+
+   va_start(ap, command);
+   ret = waveform_radio_send_api_command_cb_va(waveform, at, complete_cb, queued_cb, arg, command,
                                                ap);
    va_end(ap);
 

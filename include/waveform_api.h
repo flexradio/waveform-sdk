@@ -22,6 +22,7 @@
 #define WAVEFORM_SDK_WAVEFORM_API_H
 
 #include <netinet/in.h>
+#include <sys/time.h>
 #include <sys/types.h>
 
 /// @struct waveform_t
@@ -247,6 +248,33 @@ int waveform_register_command_cb(struct waveform_t* waveform,
 long waveform_send_api_command_cb(struct waveform_t* waveform,
                                   waveform_response_cb_t cb, void* arg,
                                   char* command, ...);
+
+/// @brief Sends a command to the radio at a specified time
+/// @details Does not wait for a response from the radio.  This is a shortcut for passing NULL to the callback parameters of
+///          send_timed_api_command_cb()
+/// @param waveform Pointer to the waveform structure returned by waveform_create()
+/// @param at The time in the future in which to execute the commamnd
+/// @param command A format string in printf(3) format.
+/// @param ... Arguments for format specification
+/// @returns The sequence number on success or -1 on failure.
+#define waveform_send_timed_api_command(waveform, at, command, ...) \
+   waveform_send_timed_api_command_cb(waveform, at, NULL, NULL, NULL, command##__VA_ARGS__)
+
+/// @brief Sends a timed command to the radio and invokes callbacks
+/// @details This version of the command processing waits for a response from the radio and invokes your desired
+///          callback.  It also will optionally call a callback when the command is successfully queued.
+///          Your callbacks should be thread-safe as it may not be executed on the same thread as you
+///          invoked the command.
+/// @param waveform Pointer to the waveform structure returned by waveform_create()
+/// @param at The time in the future in which to execute the commamnd.
+/// @param cb Pointer to a command completion callback function.  If this is NULL, no callback will be performed.
+/// @param queued_cb Pointer to a command queued callback function.  If this is NULL, no callback will be performed.
+/// @param arg A user-defined argument to be passed to the callbacks on execution.  Can be NULL.
+/// @param command A format string in printf(3) format.
+/// @param ... Arguments for format specification
+/// @returns The sequence number on success or -1 on failure.
+long waveform_send_timed_api_command_cb(struct waveform_t* waveform, struct timespec* at, waveform_response_cb_t complete_cb,
+                                        waveform_response_cb_t queued_cb, void* arg, char* command, ...);
 
 /// @brief Adds a new meter to a meter list
 /// @details Adds a new meter to a meter list and registers it with the radio.
