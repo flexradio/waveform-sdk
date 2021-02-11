@@ -30,6 +30,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/time.h>
 #include <unistd.h>
 
 // ****************************************
@@ -516,6 +517,13 @@ inline uint64_t get_packet_ts_frac(struct waveform_vita_packet* packet)
 {
    return packet->timestamp_frac;
 }
+
+inline void get_packet_ts(struct waveform_vita_packet* packet, struct timespec* ts)
+{
+   ts->tv_sec = packet->timestamp_int;
+   ts->tv_nsec = packet->timestamp_frac / 1000;
+}
+
 
 inline uint32_t get_stream_id(struct waveform_vita_packet* packet)
 {

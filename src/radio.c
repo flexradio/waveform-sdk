@@ -64,9 +64,17 @@
 // to marshall a bunch of variables in a struct.  These are
 // created and passed to the callbacks for responses, status
 // message callbacks, and command callbacks.
+
+enum cmd_cb_type
+{
+   CMD_CB_QUEUED,
+   CMD_CB_COMPLETE
+};
+
 struct resp_cb_wq_desc {
    unsigned int code;
    sds message;
+   enum cmd_cb_type type;
    struct response_queue_entry* rq_entry;
 };
 
@@ -105,12 +113,13 @@ struct state_cb_wq_desc {
 /// @param ctx A pointer to a user-defined context structure that will be provided to the
 ///            callback function when the command response arrives.
 static void add_sequence_to_response_queue(struct waveform_t* waveform,
-                                           waveform_response_cb_t cb, void* ctx)
+                                           waveform_response_cb_t cb, waveform_response_cb_t queued_cb, void* ctx)
 {
    struct response_queue_entry* new_entry;
 
    new_entry = (struct response_queue_entry*) malloc(sizeof(*new_entry));
    new_entry->cb = cb;
+   new_entry->queued_cb = queued_cb;
    new_entry->sequence = waveform->radio->sequence;
    new_entry->ctx = ctx;
    new_entry->wf = waveform;
@@ -127,11 +136,34 @@ static void add_sequence_to_response_queue(struct waveform_t* waveform,
 static void rq_call_cb(void* arg)
 {
    struct resp_cb_wq_desc* desc = (struct resp_cb_wq_desc*) arg;
+   waveform_response_cb_t cb;
 
-   desc->rq_entry->cb(desc->rq_entry->wf, desc->code, desc->message,
-                      desc->rq_entry->ctx);
+   if (desc->type == CMD_CB_COMPLETE)
+   {
+      cb = desc->rq_entry->cb;
+   }
+   else if (desc->type == CMD_CB_QUEUED)
+   {
+      cb = desc->rq_entry->queued_cb;
+   }
+   else
+   {
+      //  We shouldn't get here.  This isn't a valid command callback type.
+      return;
+   }
 
-   free(desc->rq_entry);
+   if (cb)
+   {
+      cb(desc->rq_entry->wf, desc->code, desc->message, desc->rq_entry->ctx);
+   }
+
+   //  Only free the response queue entry if we're complete, or if we have failed
+   //  to queue the command.  Otherwise we need it in there to call the response
+   //  callback when the command actually executes.
+   if (desc->type == CMD_CB_COMPLETE || (desc->type == CMD_CB_QUEUED && desc->code != 0))
+   {
+      free(desc->rq_entry);
+   }
    free(desc);
 }
 
@@ -141,6 +173,7 @@ static void rq_call_cb(void* arg)
 ///          the response and need to have any callbacks called and the command queue entry removed
 ///          from the linked list.
 /// @param radio A reference to the radio receiving the command
+/// @param type Whether the callback is for a comamnd that is acknowledging queueing or sending a final response
 /// @param sequence The sequence number that we assigned to the command when we executed it.  This will be
 ///                 returned back to us in the response to identify it.
 /// @param code The response code to the comamand returned from the radio.  This is inevitably 0 for success or some
@@ -148,6 +181,7 @@ static void rq_call_cb(void* arg)
 /// @param message A text response for the command.  This may be passed back for either success or failure.  For example
 ///                the meter creation command returns the meter index number in this field.
 static void complete_response_entry(struct radio_t* radio,
+                                    enum cmd_cb_type type,
                                     unsigned int sequence, unsigned int code,
                                     sds message)
 {
@@ -166,10 +200,17 @@ static void complete_response_entry(struct radio_t* radio,
    desc->code = code;
    desc->rq_entry = current_entry;
    desc->message = sdsdup(message);
+   desc->type = type;
    pthread_workqueue_additem_np(radio->cb_wq, rq_call_cb, desc, &handle,
                                 &gencountp);
 
-   LL_DELETE(radio->rq_head, current_entry);
+   //  Only remove the entry from the queue if we're complete, or if we have failed
+   //  to queue the command.  Otherwise we need it in there to call the response
+   //  callback when the command actually executes.
+   if (type == CMD_CB_COMPLETE || (type == CMD_CB_QUEUED && code != 0))
+   {
+      LL_DELETE(radio->rq_head, current_entry);
+   }
 }
 
 /// @brief Destroys the command response queue
@@ -589,6 +630,7 @@ static void radio_process_line(struct radio_t* radio, sds line)
          break;
 
       case 'R':
+      case 'Q':
          errno = 0;
          if (count != 3)
          {
@@ -629,7 +671,9 @@ static void radio_process_line(struct radio_t* radio, sds line)
             break;
          }
 
-         complete_response_entry(radio, sequence, code, tokens[2]);
+         enum cmd_cb_type type = command == 'R' ? CMD_CB_COMPLETE : CMD_CB_QUEUED;
+         complete_response_entry(radio, type, sequence, code, tokens[2]);
+
          break;
 
       case 'C':
@@ -841,7 +885,8 @@ eb_abort:
 // Global Functions
 // ****************************************
 long waveform_radio_send_api_command_cb_va(struct waveform_t* wf,
-                                           waveform_response_cb_t cb, void* arg,
+                                           struct timespec* at,
+                                           waveform_response_cb_t cb, waveform_response_cb_t queued_cb, void* arg,
                                            char* command, va_list ap)
 {
    int cmdlen;
@@ -849,9 +894,17 @@ long waveform_radio_send_api_command_cb_va(struct waveform_t* wf,
    va_list aq;
 
    struct evbuffer* output = bufferevent_get_output(wf->radio->bev);
+   if (at)
+   {
+      cmdlen = asprintf(&message_format, "C%ld|@%ld.%ld|%s\n", wf->radio->sequence, at->tv_sec, at->tv_nsec * 1000,
+                        command);
+   }
+   else
+   {
+      cmdlen = asprintf(&message_format, "C%ld|%s\n", wf->radio->sequence,
+                        command);
+   }
 
-   cmdlen = asprintf(&message_format, "C%ld|%s\n", wf->radio->sequence,
-                     command);
    if (cmdlen < 0)
    {
       return -1;
@@ -869,7 +922,7 @@ long waveform_radio_send_api_command_cb_va(struct waveform_t* wf,
 
    if (cb)
    {
-      add_sequence_to_response_queue(wf, cb, arg);
+      add_sequence_to_response_queue(wf, cb, queued_cb, arg);
    }
 
    return ++wf->radio->sequence;
