@@ -25,6 +25,7 @@
 // Third Party Library Includes
 // ****************************************
 #include <pthread_workqueue.h>
+#include <stdatomic.h>
 #include <sys/time.h>
 
 // ****************************************
@@ -50,7 +51,7 @@ struct radio_t {
    struct event_base* base;
    struct bufferevent* bev;
    unsigned long handle;
-   long sequence;
+   _Atomic long sequence;
    pthread_workqueue_t cb_wq;
    struct response_queue_entry* rq_head;
 };

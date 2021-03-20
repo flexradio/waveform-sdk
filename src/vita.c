@@ -26,6 +26,7 @@
 #include <errno.h>
 #include <pthread.h>
 #include <semaphore.h>
+#include <stdatomic.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -64,7 +65,7 @@ struct data_cb_wq_desc {
 static sem_t wq_sem;
 static pthread_mutex_t wq_lock;
 static struct data_cb_wq_desc* wq = NULL;
-static bool wq_running = false;
+static _Atomic bool wq_running = false;
 static pthread_t wq_thread;
 
 // ****************************************
@@ -310,7 +311,6 @@ static void* vita_evt_loop(void* arg)
 
    waveform_send_api_command_cb(wf, NULL, NULL, "waveform set %s udpport=%hu", wf->name, vita->port);
    waveform_send_api_command_cb(wf, NULL, NULL, "client udpport %hu", vita->port);
-
 
    event_base_dispatch(vita->base);
 
