@@ -54,6 +54,7 @@ struct radio_t {
    _Atomic long sequence;
    pthread_workqueue_t cb_wq;
    struct response_queue_entry* rq_head;
+   pthread_mutex_t rq_lock;
 };
 
 // ****************************************

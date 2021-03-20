@@ -124,7 +124,9 @@ static void add_sequence_to_response_queue(struct waveform_t* waveform,
    new_entry->ctx = ctx;
    new_entry->wf = waveform;
 
+   pthread_mutex_lock(&(waveform->radio->rq_lock));
    LL_APPEND(waveform->radio->rq_head, new_entry);
+   pthread_mutex_unlock(&(waveform->radio->rq_lock));
 }
 
 /// @brief Work queue function to execute callback for a command response
@@ -190,7 +192,9 @@ static void complete_response_entry(struct radio_t* radio,
    unsigned int gencountp;
    struct resp_cb_wq_desc* desc = calloc(1, sizeof(*desc));
 
+   pthread_mutex_lock(&(radio->rq_lock));
    LL_SEARCH_SCALAR(radio->rq_head, current_entry, sequence, sequence);
+   pthread_mutex_unlock(&(radio->rq_lock));
    if (!current_entry)
    {
       free(desc);
@@ -219,11 +223,13 @@ static void destroy_response_queue(struct waveform_t* waveform)
 {
    struct response_queue_entry *current_entry, *tmp_entry;
 
+   pthread_mutex_lock(&(waveform->radio->rq_lock));
    LL_FOREACH_SAFE(waveform->radio->rq_head, current_entry, tmp_entry)
    {
       LL_DELETE(waveform->radio->rq_head, current_entry);
       free(current_entry);
    }
+   pthread_mutex_unlock(&(waveform->radio->rq_lock));
 }
 
 /// @brief Work queue function to execute callback for a state change
@@ -943,11 +949,14 @@ struct radio_t* waveform_radio_create(struct sockaddr_in* addr)
 
    pthread_workqueue_init_np();
 
+   pthread_mutex_init(&(radio->rq_lock), NULL);
+
    return radio;
 }
 
 void waveform_radio_destroy(struct radio_t* radio)
 {
+   pthread_mutex_destroy(&(radio->rq_lock));
    free(radio);
 }
 
