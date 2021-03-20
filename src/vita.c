@@ -88,6 +88,9 @@ inline static bool is_transmit_packet(struct waveform_vita_packet* packet)
    return false;
 }
 
+/// @brief Places a VITA-49 packet on the queue for transmission in the VITA event loop
+/// @param vita A reference to the VITA loop on which to queue the packet
+/// @param queue_entry A reference to a queue information structure
 static inline void vita_queue_packet(struct vita* vita, struct xmit_queue* queue_entry)
 {
    pthread_mutex_lock(&(vita->xmit_queue_lock));
@@ -95,7 +98,17 @@ static inline void vita_queue_packet(struct vita* vita, struct xmit_queue* queue
    pthread_mutex_unlock(&(vita->xmit_queue_lock));
 }
 
-static void vita_write_cb(evutil_socket_t socket, short what, void* ctx)
+/// @brief Libevent callback for when a the VITA UDP socket is ready for a write.
+/// @details This function is only used when the VITA UDP socket buffer in the kernel
+///          is full and write(2) has returned EAGAIN or EWOULDBLOCK.  The write function
+///          then queues a packet and activates the event on the event loop that will
+///          call this function as a callback.  We will attempt to empty the queue here
+///          and leave the event disarmed.  If we ourselves get EAGAIN or EWOULDBLOCK
+///          we rearm ourselves and return.
+/// @socket The socket to send the VITA packets
+/// @what The event type that occured
+/// @ctx A reference to the VITA structure for the processing loop.
+static void vita_write_cb(evutil_socket_t socket, short what __attribute__((unused)), void* ctx)
 {
    struct vita* vita = (struct vita*) ctx;
    struct xmit_queue* queue_entry;
@@ -397,6 +410,12 @@ static void* vita_cb_loop(void* arg __attribute__((unused)))
 }
 #pragma clang diagnostic pop
 
+/// @brief Prepare a vita packet for processing
+/// @details Fills in various calculated fields in the packet to ready it for
+///          transmission.  This includes calculating th epacket size, setting
+///          the timestamp and resolving the byte order.
+/// @param packet The packet to prepare
+/// @returns The length of the packet to be sent.
 static size_t vita_prep_packet(struct waveform_vita_packet* packet)
 {
    size_t packet_len;
