@@ -207,16 +207,19 @@ static void complete_response_entry(struct radio_t* radio,
    desc->rq_entry = current_entry;
    desc->message = sdsdup(message);
    desc->type = type;
-   pthread_workqueue_additem_np(radio->cb_wq, rq_call_cb, desc, &handle,
-                                &gencountp);
 
    //  Only remove the entry from the queue if we're complete, or if we have failed
    //  to queue the command.  Otherwise we need it in there to call the response
    //  callback when the command actually executes.
    if (type == CMD_CB_COMPLETE || (type == CMD_CB_QUEUED && code != 0))
    {
+      pthread_mutex_lock(&(radio->rq_lock));
       LL_DELETE(radio->rq_head, current_entry);
+      pthread_mutex_unlock(&(radio->rq_lock));
    }
+
+   pthread_workqueue_additem_np(radio->cb_wq, rq_call_cb, desc, &handle,
+                                &gencountp);
 }
 
 /// @brief Destroys the command response queue
