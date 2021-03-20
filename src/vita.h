@@ -91,16 +91,25 @@ struct waveform_vita_packet_sans_ts {
 };
 #pragma pack(pop)
 
+struct xmit_queue {
+   struct waveform_vita_packet packet;
+   size_t len;
+   struct xmit_queue* next;
+};
+
 struct vita {
    int sock;
    unsigned short port;// XXX Do we really need to keep this around?
    pthread_t thread;
    struct event_base* base;
-   struct event* evt;
+   struct event* read_evt;
+   struct event* write_evt;
    unsigned int meter_sequence;
    unsigned int data_sequence;
    uint32_t tx_stream_id;
    uint32_t rx_stream_id;
+   struct xmit_queue* xmit_queue;
+   pthread_mutex_t xmit_queue_lock;
 };
 
 // ****************************************
@@ -120,7 +129,7 @@ int vita_init(struct waveform_t* wf);
 ///          the stream, and the stream id itself.
 /// @param vita The VITA loop to which to send the packet
 /// @param packet a reference to the packet contents
-void vita_send_packet(struct vita* vita, struct waveform_vita_packet* packet);
+void vita_send_packet(struct vita* vita, struct xmit_queue* queue_entry);
 
 /// @brief Sends a data packet to the radio
 /// @details

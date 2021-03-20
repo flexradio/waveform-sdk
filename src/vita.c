@@ -87,6 +87,44 @@ inline static bool is_transmit_packet(struct waveform_vita_packet* packet)
    return false;
 }
 
+static inline void vita_queue_packet(struct vita* vita, struct xmit_queue* queue_entry)
+{
+   pthread_mutex_lock(&(vita->xmit_queue_lock));
+   LL_APPEND(vita->xmit_queue, queue_entry);
+   pthread_mutex_unlock(&(vita->xmit_queue_lock));
+}
+
+static void vita_write_cb(evutil_socket_t socket, short what, void* ctx)
+{
+   struct vita* vita = (struct vita*) ctx;
+   struct xmit_queue* queue_entry;
+   struct xmit_queue* tmp;
+   ssize_t bytes_sent;
+
+   pthread_mutex_lock(&(vita->xmit_queue_lock));
+   LL_FOREACH_SAFE(vita->xmit_queue, queue_entry, tmp)
+   {
+      if ((bytes_sent = send(socket, &(queue_entry->packet), queue_entry->len, 0)) == -1)
+      {
+         //  The socket is busy again, just activate the event again and try again next go around.
+         if (errno == EAGAIN || errno == EWOULDBLOCK)
+         {
+            pthread_mutex_unlock(&(vita->xmit_queue_lock));
+            event_add(vita->write_evt, NULL);
+            return;
+         }
+      }
+
+      if (bytes_sent != queue_entry->len)
+      {
+         waveform_log(WF_LOG_ERROR, "Short write on vita send\n");
+      }
+      LL_DELETE(vita->xmit_queue, queue_entry);
+      free(queue_entry);
+   }
+   pthread_mutex_unlock(&(vita->xmit_queue_lock));
+}
+
 /// @brief Libevent callback for when a VITA packet is read from the UDP socket.
 /// @details When a packet is recieved from the network, libevent calls this callback to let us know.  In here we do all of
 ///          our initial packet processing and sanity checks and bit flipping before calling the appropriate user callback
@@ -206,7 +244,7 @@ static void* vita_evt_loop(void* arg)
 
    waveform_log(WF_LOG_DEBUG, "Initializing VITA-49 engine...\n");
 
-   vita->sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+   vita->sock = socket(AF_INET, SOCK_DGRAM | SOCK_NONBLOCK, IPPROTO_UDP);
    if (vita->sock == -1)
    {
       waveform_log(WF_LOG_ERROR, " Failed to initialize VITA socket: %s\n", strerror(errno));
@@ -238,15 +276,30 @@ static void* vita_evt_loop(void* arg)
       goto fail_socket;
    }
 
-   vita->evt = event_new(vita->base, vita->sock, EV_READ | EV_PERSIST, vita_read_cb, vita);
-   if (!vita->evt)
+   vita->read_evt = event_new(vita->base, vita->sock, EV_READ | EV_PERSIST, vita_read_cb, vita);
+   if (!vita->read_evt)
    {
-      waveform_log(WF_LOG_ERROR, "Couldn't create VITA event\n");
+      waveform_log(WF_LOG_ERROR, "Couldn't create VITA read event\n");
       goto fail_base;
    }
-   if (event_add(vita->evt, NULL) == -1)
+   if (event_add(vita->read_evt, NULL) == -1)
    {
-      waveform_log(WF_LOG_ERROR, "Couldn't add VITA event to base\n");
+      waveform_log(WF_LOG_ERROR, "Couldn't add VITA read event to base\n");
+      goto fail_evt;
+   }
+
+   vita->write_evt = event_new(vita->base, vita->sock, EV_WRITE, vita_write_cb, vita);
+   if (!vita->write_evt)
+   {
+      waveform_log(WF_LOG_ERROR, "Couldn't create VITA write event\n");
+      goto fail_evt;
+   }
+
+   vita->xmit_queue = NULL;
+   ret = pthread_mutex_init(&(vita->xmit_queue_lock), NULL);
+   if (ret)
+   {
+      waveform_log(WF_LOG_ERROR, "Couldn't create VITA write queue lock: %d\n", errno);
       goto fail_evt;
    }
 
@@ -263,8 +316,10 @@ static void* vita_evt_loop(void* arg)
 
    waveform_log(WF_LOG_DEBUG, "VITA thread ending...\n");
 
+   pthread_mutex_destroy(&(vita->xmit_queue_lock));
+
 fail_evt:
-   event_free(vita->evt);
+   event_free(vita->read_evt);
 fail_base:
    event_base_free(vita->base);
 fail_socket:
@@ -274,6 +329,8 @@ fail:
    return NULL;
 }
 
+#pragma clang diagnostic push
+#pragma ide diagnostic ignored "EndlessLoop"
 /// @brief Data callback event loop
 /// @details An event loop for running user-defined data callbacks.  This runs and
 ///          takes tasks from the wq linked list and executes them in order.  This
@@ -335,24 +392,14 @@ static void* vita_cb_loop(void* arg __attribute__((unused)))
 
       free(current_task);
    }
-}
 
-/// @brief Perform a write to the VITA socket
-/// @details When writing to the VITA socket via libevent, we register an event that has EV_WRITE as its trigger.  This will mean
-///          that the event will be called when the socket is ready to receive writes.  This should be almost immediately for a UDP
-///          socket like this.  When that event is triggered, this callback is performed.  We do this as a one-shot callback and register
-///          another event when we are ready to write again.
-/// @param socket The socket upon which the VITA packet was received
-/// @param what The event type that occurred
-/// @param ctx A reference to the VITA packet to be sent
-static void vita_send_packet_cb(evutil_socket_t socket, short what, void* arg)
+   return NULL;
+}
+#pragma clang diagnostic pop
+
+static size_t vita_prep_packet(struct waveform_vita_packet* packet)
 {
-   struct waveform_vita_packet* packet = (struct waveform_vita_packet*) arg;
-   if (!(what & EV_WRITE))
-   {
-      waveform_log(WF_LOG_INFO, "Callback is not for a read?!\n");
-      return;
-   }
+   size_t packet_len;
 
    if ((packet->timestamp_type & 0x50u) != 0)
    {
@@ -360,8 +407,7 @@ static void vita_send_packet_cb(evutil_socket_t socket, short what, void* arg)
       packet->timestamp_frac = 0;
    }
 
-   ssize_t bytes_sent;
-   size_t packet_len = VITA_PACKET_HEADER_SIZE(packet) + (packet->length * sizeof(float));
+   packet_len = VITA_PACKET_HEADER_SIZE(packet) + (packet->length * sizeof(float));
    packet->length += (VITA_PACKET_HEADER_SIZE(packet) / 4);
    assert(packet_len % 4 == 0);
 
@@ -374,19 +420,7 @@ static void vita_send_packet_cb(evutil_socket_t socket, short what, void* arg)
 
    swap_frac_timestamp((uint32_t*) &(packet->timestamp_frac));
 
-   if ((bytes_sent = send(socket, packet, packet_len, 0)) == -1)
-   {
-      waveform_log(WF_LOG_ERROR, "Error sending vita packet: %s\n", strerror(errno));
-      return;
-   }
-
-   if (bytes_sent != packet_len)
-   {
-      waveform_log(WF_LOG_ERROR, "Short write on vita send\n");
-      return;
-   }
-
-   free(packet);
+   return packet_len;
 }
 
 // ****************************************
@@ -440,20 +474,43 @@ void vita_destroy(struct waveform_t* wf)
    }
 }
 
-void vita_send_packet(struct vita* vita, struct waveform_vita_packet* packet)
+void vita_send_packet(struct vita* vita, struct xmit_queue* queue_entry)
 {
-   vita->evt = event_new(vita->base, vita->sock, EV_WRITE, vita_send_packet_cb, packet);
-   if (!vita->evt)
+   struct waveform_vita_packet* packet = &(queue_entry->packet);
+
+   queue_entry->len = vita_prep_packet(packet);
+
+   //  If the write queue runner is active, go ahead and add the packet to
+   //  the end of the queue so it can send it out.
+   if (event_pending(vita->write_evt, EV_WRITE, NULL))
    {
-      waveform_log(WF_LOG_ERROR, "Couldn't create VITA event\n");
+      vita_queue_packet(vita, queue_entry);
       return;
    }
-   if (event_add(vita->evt, NULL) == -1)
+
+   ssize_t bytes_sent;
+   if ((bytes_sent = send(vita->sock, packet, queue_entry->len, 0)) == -1)
    {
-      waveform_log(WF_LOG_ERROR, "Couldn't add VITA event to base\n");
-      event_free(vita->evt);
+      //  If the packet can't be sent because the socket is full, add the packet to the queue
+      //  and set the queue to be pending.  This way the event loop will try to send the packets
+      //  the next time the socket is ready.
+      if (errno == EAGAIN || errno == EWOULDBLOCK)
+      {
+         vita_queue_packet(vita, queue_entry);
+         event_add(vita->write_evt, NULL);
+         return;
+      }
+
+      waveform_log(WF_LOG_ERROR, "Error sending vita packet: %d\n", errno);
       return;
    }
+
+   if (bytes_sent != queue_entry->len)
+   {
+      waveform_log(WF_LOG_ERROR, "Short write on vita send\n");
+   }
+
+   free(queue_entry);
 }
 
 void vita_send_data_packet(struct vita* vita, float* samples, size_t num_samples, enum waveform_packet_type type)
@@ -465,34 +522,35 @@ void vita_send_data_packet(struct vita* vita, float* samples, size_t num_samples
       return;
    }
 
-   struct waveform_vita_packet* packet = calloc(1, sizeof(*packet));
+   //  We go ahead and allocate a queue entry here because we don't want to copy it unnecessarily if we have to queue it in
+   //  vita_send_packet.  The overhead here is really only the size of a pointer, which isn't very big.
+   struct xmit_queue* queue_entry = calloc(1, sizeof(*queue_entry));
 
-   packet->packet_type = VITA_PACKET_TYPE_IF_DATA_WITH_STREAM_ID;
-   packet->class_id = AUDIO_CLASS_ID;
-   packet->length = num_samples;// Length is in 32-bit words
+   queue_entry->packet.packet_type = VITA_PACKET_TYPE_IF_DATA_WITH_STREAM_ID;
+   queue_entry->packet.class_id = AUDIO_CLASS_ID;
+   queue_entry->packet.length = num_samples;// Length is in 32-bit words
 
    //  XXX This is an issue because the pointer dereference won't be atomic.  If two threads go at this at once
    //  XXX the value could get corrupted.  It's not greatly important, but it will screw up the sequence.  It should
    //  XXX probably be done on the IO thread, but we lose the reference to the struct vita when we call the
    //  XXX event callback.
-   packet->timestamp_type = 0x50U | (vita->data_sequence++ & 0x0fu);
-
+   queue_entry->packet.timestamp_type = 0x50U | (vita->data_sequence++ & 0x0fu);
 
    switch (type)
    {
       case TRANSMITTER_DATA:
-         packet->stream_id = vita->tx_stream_id;
+         queue_entry->packet.stream_id = vita->tx_stream_id;
          break;
       case SPEAKER_DATA:
-         packet->stream_id = vita->rx_stream_id;
+         queue_entry->packet.stream_id = vita->rx_stream_id;
          break;
       default:
          waveform_log(WF_LOG_INFO, "Invalid packet type!\n");
          break;
    }
 
-   memcpy(packet->raw_payload, samples, num_samples * sizeof(float));
-   vita_send_packet(vita, packet);
+   memcpy(queue_entry->packet.raw_payload, samples, num_samples * sizeof(float));
+   vita_send_packet(vita, queue_entry);
 }
 
 // ****************************************
