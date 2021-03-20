@@ -166,6 +166,8 @@ static void rq_call_cb(void* arg)
    {
       free(desc->rq_entry);
    }
+
+   sdsfree(desc->message);
    free(desc);
 }
 
