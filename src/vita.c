@@ -530,10 +530,6 @@ void vita_send_data_packet(struct vita* vita, float* samples, size_t num_samples
    queue_entry->packet.class_id = AUDIO_CLASS_ID;
    queue_entry->packet.length = num_samples;// Length is in 32-bit words
 
-   //  XXX This is an issue because the pointer dereference won't be atomic.  If two threads go at this at once
-   //  XXX the value could get corrupted.  It's not greatly important, but it will screw up the sequence.  It should
-   //  XXX probably be done on the IO thread, but we lose the reference to the struct vita when we call the
-   //  XXX event callback.
    queue_entry->packet.timestamp_type = 0x50U | (vita->data_sequence++ & 0x0fu);
 
    switch (type)

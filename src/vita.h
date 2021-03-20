@@ -105,7 +105,7 @@ struct vita {
    struct event* read_evt;
    struct event* write_evt;
    unsigned int meter_sequence;
-   unsigned int data_sequence;
+   _Atomic unsigned int data_sequence;
    uint32_t tx_stream_id;
    uint32_t rx_stream_id;
    struct xmit_queue* xmit_queue;
