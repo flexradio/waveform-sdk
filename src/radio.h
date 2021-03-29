@@ -26,6 +26,7 @@
 // ****************************************
 #include <pthread_workqueue.h>
 #include <stdatomic.h>
+#include <stdint.h>
 #include <sys/time.h>
 
 // ****************************************
@@ -51,7 +52,7 @@ struct radio_t {
    struct event_base* base;
    struct bufferevent* bev;
    unsigned long handle;
-   _Atomic long sequence;
+   _Atomic uint32_t sequence;
    pthread_workqueue_t cb_wq;
    struct response_queue_entry* rq_head;
    pthread_mutex_t rq_lock;
@@ -70,8 +71,9 @@ struct radio_t {
 /// @param arg Argument to be passed to the callback when the command response arrives.
 /// @param command The format string for the command to send to the radio.
 /// @param ap A va_list to complete the format string specified in the command parameter.
-long waveform_radio_send_api_command_cb_va(struct waveform_t* wf, struct timespec* at,
-                                           waveform_response_cb_t cb, waveform_response_cb_t queued_cb, void* arg,
-                                           char* command, va_list ap);
+/// @returns The next sequence number or -1
+int32_t waveform_radio_send_api_command_cb_va(struct waveform_t* wf, struct timespec* at,
+                                              waveform_response_cb_t cb, waveform_response_cb_t queued_cb, void* arg,
+                                              char* command, va_list ap);
 
 #endif//WAVEFORM_SDK_RADIO_H

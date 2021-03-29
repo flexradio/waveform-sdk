@@ -249,9 +249,9 @@ int waveform_register_command_cb(struct waveform_t* waveform,
 /// @param command A format string in printf(3) format.
 /// @param ... Arguments for format specification
 /// @returns The sequence number on success or -1 on failure.
-long waveform_send_api_command_cb(struct waveform_t* waveform,
-                                  waveform_response_cb_t cb, void* arg,
-                                  char* command, ...);
+int32_t waveform_send_api_command_cb(struct waveform_t* waveform,
+                                     waveform_response_cb_t cb, void* arg,
+                                     char* command, ...);
 
 /// @brief Sends a command to the radio at a specified time
 /// @details Does not wait for a response from the radio.  This is a shortcut for passing NULL to the callback parameters of
@@ -277,8 +277,8 @@ long waveform_send_api_command_cb(struct waveform_t* waveform,
 /// @param command A format string in printf(3) format.
 /// @param ... Arguments for format specification
 /// @returns The sequence number on success or -1 on failure.
-long waveform_send_timed_api_command_cb(struct waveform_t* waveform, struct timespec* at, waveform_response_cb_t complete_cb,
-                                        waveform_response_cb_t queued_cb, void* arg, char* command, ...);
+int32_t waveform_send_timed_api_command_cb(struct waveform_t* waveform, struct timespec* at, waveform_response_cb_t complete_cb,
+                                           waveform_response_cb_t queued_cb, void* arg, char* command, ...);
 
 /// @brief Adds a new meter to a meter list
 /// @details Adds a new meter to a meter list and registers it with the radio.

@@ -26,6 +26,7 @@
 // ****************************************
 #include <arpa/inet.h>
 #include <assert.h>
+#include <inttypes.h>
 #include <limits.h>
 #include <netinet/in.h>
 #include <pthread.h>
@@ -895,10 +896,10 @@ eb_abort:
 // ****************************************
 // Global Functions
 // ****************************************
-long waveform_radio_send_api_command_cb_va(struct waveform_t* wf,
-                                           struct timespec* at,
-                                           waveform_response_cb_t cb, waveform_response_cb_t queued_cb, void* arg,
-                                           char* command, va_list ap)
+int32_t waveform_radio_send_api_command_cb_va(struct waveform_t* wf,
+                                              struct timespec* at,
+                                              waveform_response_cb_t cb, waveform_response_cb_t queued_cb, void* arg,
+                                              char* command, va_list ap)
 {
    int cmdlen;
    char* message_format;
@@ -907,12 +908,12 @@ long waveform_radio_send_api_command_cb_va(struct waveform_t* wf,
    struct evbuffer* output = bufferevent_get_output(wf->radio->bev);
    if (at)
    {
-      cmdlen = asprintf(&message_format, "C%ld|@%ld.%ld|%s\n", wf->radio->sequence, at->tv_sec, at->tv_nsec * 1000,
+      cmdlen = asprintf(&message_format, "C%" PRIu32 "|@%ld.%ld|%s\n", wf->radio->sequence, at->tv_sec, at->tv_nsec * 1000,
                         command);
    }
    else
    {
-      cmdlen = asprintf(&message_format, "C%ld|%s\n", wf->radio->sequence,
+      cmdlen = asprintf(&message_format, "C%" PRIu32 "|%s\n", wf->radio->sequence,
                         command);
    }
 
@@ -936,7 +937,9 @@ long waveform_radio_send_api_command_cb_va(struct waveform_t* wf,
       add_sequence_to_response_queue(wf, cb, queued_cb, arg);
    }
 
-   return ++wf->radio->sequence;
+   wf->radio->sequence = (wf->radio->sequence + 1) & ~(1 << 31);
+
+   return (uint32_t) wf->radio->sequence;
 }
 
 // ****************************************
