@@ -315,8 +315,10 @@ int waveform_meter_set_int_value(struct waveform_t* waveform, char* name,
 ///          to be send and is therefore not a "cheap" operation.  As many meters as possible should be combined into
 ///          a list and sent simultaneously.
 /// @param waveform The waveform containing the meter
-/// @returns 0 for success or -1 for failure
-int waveform_meters_send(struct waveform_t* waveform);
+/// @returns 0 on success or a negative value on an error.  Return values are negative values of errno.h.  Will return
+///          -E2BIG on a short write to the network and -EFBIG if you attempt to send too many meters in a single
+///          packet.
+ssize_t waveform_meters_send(struct waveform_t* waveform);
 
 /// @brief Creates a radio definition
 /// @details Creates a radio structure.  This does not connect to the radio.  A radio should be created and
@@ -360,9 +362,12 @@ int waveform_radio_start(struct radio_t* radio);
 ///                as the library will do any necessary byte swapping for transmission.
 /// @param type The type of packet to send.  This is either SPEAKER_DATA for playing on the audio output of the radio
 ///             or TRANSMITTER_DATA for sending to the RF transmitter.
-void waveform_send_data_packet(struct waveform_t* waveform, float* samples,
-                               size_t num_samples,
-                               enum waveform_packet_type type);
+/// @returns 0 on success or a negative value on an error.  Return values are negative values of errno.h.  Will return
+///          -E2BIG on a short write to the network and -EFBIG if you attempt to send too many samples in a single
+///          packet.
+ssize_t waveform_send_data_packet(struct waveform_t* waveform, float* samples,
+                                  size_t num_samples,
+                                  enum waveform_packet_type type);
 
 /// @brief Gets the length of a received packet
 /// @details Returns the length of the data in a packet received from the radio.

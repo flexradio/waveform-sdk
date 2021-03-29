@@ -88,57 +88,6 @@ inline static bool is_transmit_packet(struct waveform_vita_packet* packet)
    return false;
 }
 
-/// @brief Places a VITA-49 packet on the queue for transmission in the VITA event loop
-/// @param vita A reference to the VITA loop on which to queue the packet
-/// @param queue_entry A reference to a queue information structure
-static inline void vita_queue_packet(struct vita* vita, struct xmit_queue* queue_entry)
-{
-   pthread_mutex_lock(&(vita->xmit_queue_lock));
-   LL_APPEND(vita->xmit_queue, queue_entry);
-   pthread_mutex_unlock(&(vita->xmit_queue_lock));
-}
-
-/// @brief Libevent callback for when a the VITA UDP socket is ready for a write.
-/// @details This function is only used when the VITA UDP socket buffer in the kernel
-///          is full and write(2) has returned EAGAIN or EWOULDBLOCK.  The write function
-///          then queues a packet and activates the event on the event loop that will
-///          call this function as a callback.  We will attempt to empty the queue here
-///          and leave the event disarmed.  If we ourselves get EAGAIN or EWOULDBLOCK
-///          we rearm ourselves and return.
-/// @socket The socket to send the VITA packets
-/// @what The event type that occured
-/// @ctx A reference to the VITA structure for the processing loop.
-static void vita_write_cb(evutil_socket_t socket, short what __attribute__((unused)), void* ctx)
-{
-   struct vita* vita = (struct vita*) ctx;
-   struct xmit_queue* queue_entry;
-   struct xmit_queue* tmp;
-   ssize_t bytes_sent;
-
-   pthread_mutex_lock(&(vita->xmit_queue_lock));
-   LL_FOREACH_SAFE(vita->xmit_queue, queue_entry, tmp)
-   {
-      if ((bytes_sent = send(socket, &(queue_entry->packet), queue_entry->len, 0)) == -1)
-      {
-         //  The socket is busy again, just activate the event again and try again next go around.
-         if (errno == EAGAIN || errno == EWOULDBLOCK)
-         {
-            pthread_mutex_unlock(&(vita->xmit_queue_lock));
-            event_add(vita->write_evt, NULL);
-            return;
-         }
-      }
-
-      if (bytes_sent != queue_entry->len)
-      {
-         waveform_log(WF_LOG_ERROR, "Short write on vita send\n");
-      }
-      LL_DELETE(vita->xmit_queue, queue_entry);
-      free(queue_entry);
-   }
-   pthread_mutex_unlock(&(vita->xmit_queue_lock));
-}
-
 /// @brief Libevent callback for when a VITA packet is read from the UDP socket.
 /// @details When a packet is recieved from the network, libevent calls this callback to let us know.  In here we do all of
 ///          our initial packet processing and sanity checks and bit flipping before calling the appropriate user callback
@@ -302,21 +251,6 @@ static void* vita_evt_loop(void* arg)
       goto fail_evt;
    }
 
-   vita->write_evt = event_new(vita->base, vita->sock, EV_WRITE, vita_write_cb, vita);
-   if (!vita->write_evt)
-   {
-      waveform_log(WF_LOG_ERROR, "Couldn't create VITA write event\n");
-      goto fail_evt;
-   }
-
-   vita->xmit_queue = NULL;
-   ret = pthread_mutex_init(&(vita->xmit_queue_lock), NULL);
-   if (ret)
-   {
-      waveform_log(WF_LOG_ERROR, "Couldn't create VITA write queue lock: %d\n", errno);
-      goto fail_evt;
-   }
-
    vita->port = ntohs(bind_addr.sin_port);
 
    vita->data_sequence = 0;
@@ -328,8 +262,6 @@ static void* vita_evt_loop(void* arg)
    event_base_dispatch(vita->base);
 
    waveform_log(WF_LOG_DEBUG, "VITA thread ending...\n");
-
-   pthread_mutex_destroy(&(vita->xmit_queue_lock));
 
 fail_evt:
    event_free(vita->read_evt);
@@ -493,52 +425,35 @@ void vita_destroy(struct waveform_t* wf)
    }
 }
 
-void vita_send_packet(struct vita* vita, struct xmit_queue* queue_entry)
+ssize_t vita_send_packet(struct vita* vita, struct xmit_queue* queue_entry)
 {
    struct waveform_vita_packet* packet = &(queue_entry->packet);
 
    queue_entry->len = vita_prep_packet(packet);
 
-   //  If the write queue runner is active, go ahead and add the packet to
-   //  the end of the queue so it can send it out.
-   if (event_pending(vita->write_evt, EV_WRITE, NULL))
-   {
-      vita_queue_packet(vita, queue_entry);
-      return;
-   }
-
    ssize_t bytes_sent;
    if ((bytes_sent = send(vita->sock, packet, queue_entry->len, 0)) == -1)
    {
-      //  If the packet can't be sent because the socket is full, add the packet to the queue
-      //  and set the queue to be pending.  This way the event loop will try to send the packets
-      //  the next time the socket is ready.
-      if (errno == EAGAIN || errno == EWOULDBLOCK)
-      {
-         vita_queue_packet(vita, queue_entry);
-         event_add(vita->write_evt, NULL);
-         return;
-      }
-
       waveform_log(WF_LOG_ERROR, "Error sending vita packet: %d\n", errno);
-      return;
+      return -errno;
    }
 
    if (bytes_sent != queue_entry->len)
    {
       waveform_log(WF_LOG_ERROR, "Short write on vita send\n");
+      return -E2BIG;
    }
 
-   free(queue_entry);
+   return 0;
 }
 
-void vita_send_data_packet(struct vita* vita, float* samples, size_t num_samples, enum waveform_packet_type type)
+ssize_t vita_send_data_packet(struct vita* vita, float* samples, size_t num_samples, enum waveform_packet_type type)
 {
    if (num_samples * sizeof(float) > MEMBER_SIZE(struct waveform_vita_packet, raw_payload))
    {
       waveform_log(WF_LOG_ERROR, "%lu samples exceeds maximum sending limit of %lu samples\n", num_samples,
                    MEMBER_SIZE(struct waveform_vita_packet, raw_payload) / sizeof(float));
-      return;
+      return -EFBIG;
    }
 
    //  We go ahead and allocate a queue entry here because we don't want to copy it unnecessarily if we have to queue it in
@@ -565,7 +480,7 @@ void vita_send_data_packet(struct vita* vita, float* samples, size_t num_samples
    }
 
    memcpy(queue_entry->packet.raw_payload, samples, num_samples * sizeof(float));
-   vita_send_packet(vita, queue_entry);
+   return vita_send_packet(vita, queue_entry);
 }
 
 // ****************************************

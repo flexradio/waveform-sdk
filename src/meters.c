@@ -225,7 +225,7 @@ int waveform_meter_set_float_value(struct waveform_t* wf, char* name, float valu
    return 0;
 }
 
-int waveform_meters_send(struct waveform_t* wf)
+ssize_t waveform_meters_send(struct waveform_t* wf)
 {
    struct waveform_meter* meter;
    int i = 0;
@@ -247,7 +247,7 @@ int waveform_meters_send(struct waveform_t* wf)
       {
          waveform_log(WF_LOG_ERROR, "Meters exceed max size\n");
          free(queue_entry);
-         return -1;
+         return -EFBIG;
       }
 
       if (meter->value != -1)
@@ -261,6 +261,5 @@ int waveform_meters_send(struct waveform_t* wf)
 
    packet->length = i;
 
-   vita_send_packet(&wf->vita, queue_entry);
-   return 0;
+   return vita_send_packet(&wf->vita, queue_entry);
 }
