@@ -235,10 +235,7 @@ ssize_t waveform_meters_send(struct waveform_t* wf)
    packet->packet_type = VITA_PACKET_TYPE_EXT_DATA_WITH_STREAM_ID;
    packet->stream_id = METER_STREAM_ID;
    packet->class_id = METER_CLASS_ID;
-   //  XXX This is an issue because the pointer dereference won't be atomic.  If two threads go at this at once
-   //  XXX the value could get corrupted.  It's not greatly important, but it will screw up the sequence.  It should
-   //  XXX probably be done on the IO thread, but we lose the reference to the struct vita when we call the
-   //  XXX event callback.
+
    packet->timestamp_type = wf->vita.meter_sequence++ & 0x0fu;
 
    LL_FOREACH(wf->meter_head, meter)

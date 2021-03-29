@@ -26,6 +26,7 @@
 // ****************************************
 #include <event2/event.h>
 #include <pthread_workqueue.h>
+#include <stdint.h>
 #include <tgmath.h>
 
 #include "waveform_api.h"
@@ -103,9 +104,8 @@ struct vita {
    pthread_t thread;
    struct event_base* base;
    struct event* read_evt;
-   struct event* write_evt;
-   unsigned int meter_sequence;
-   _Atomic unsigned int data_sequence;
+   _Atomic uint8_t meter_sequence;
+   _Atomic uint8_t data_sequence;
    uint32_t tx_stream_id;
    uint32_t rx_stream_id;
 };
