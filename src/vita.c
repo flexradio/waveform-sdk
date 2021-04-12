@@ -425,20 +425,18 @@ void vita_destroy(struct waveform_t* wf)
    }
 }
 
-ssize_t vita_send_packet(struct vita* vita, struct xmit_queue* queue_entry)
+ssize_t vita_send_packet(struct vita* vita, struct waveform_vita_packet* packet)
 {
-   struct waveform_vita_packet* packet = &(queue_entry->packet);
-
-   queue_entry->len = vita_prep_packet(packet);
+   size_t len = vita_prep_packet(packet);
 
    ssize_t bytes_sent;
-   if ((bytes_sent = send(vita->sock, packet, queue_entry->len, 0)) == -1)
+   if ((bytes_sent = send(vita->sock, packet, len, 0)) == -1)
    {
       waveform_log(WF_LOG_ERROR, "Error sending vita packet: %d\n", errno);
       return -errno;
    }
 
-   if (bytes_sent != queue_entry->len)
+   if (bytes_sent != len)
    {
       waveform_log(WF_LOG_ERROR, "Short write on vita send\n");
       return -E2BIG;
@@ -458,29 +456,29 @@ ssize_t vita_send_data_packet(struct vita* vita, float* samples, size_t num_samp
 
    //  We go ahead and allocate a queue entry here because we don't want to copy it unnecessarily if we have to queue it in
    //  vita_send_packet.  The overhead here is really only the size of a pointer, which isn't very big.
-   struct xmit_queue* queue_entry = calloc(1, sizeof(*queue_entry));
+   struct waveform_vita_packet* packet = calloc(1, sizeof(*packet));
 
-   queue_entry->packet.packet_type = VITA_PACKET_TYPE_IF_DATA_WITH_STREAM_ID;
-   queue_entry->packet.class_id = AUDIO_CLASS_ID;
-   queue_entry->packet.length = num_samples;// Length is in 32-bit words
+   packet->packet_type = VITA_PACKET_TYPE_IF_DATA_WITH_STREAM_ID;
+   packet->class_id = AUDIO_CLASS_ID;
+   packet->length = num_samples;// Length is in 32-bit words
 
-   queue_entry->packet.timestamp_type = 0x50U | (vita->data_sequence++ & 0x0fu);
+   packet->timestamp_type = 0x50U | (vita->data_sequence++ & 0x0fu);
 
    switch (type)
    {
       case TRANSMITTER_DATA:
-         queue_entry->packet.stream_id = vita->tx_stream_id;
+         packet->stream_id = vita->tx_stream_id;
          break;
       case SPEAKER_DATA:
-         queue_entry->packet.stream_id = vita->rx_stream_id;
+         packet->stream_id = vita->rx_stream_id;
          break;
       default:
          waveform_log(WF_LOG_INFO, "Invalid packet type!\n");
          break;
    }
 
-   memcpy(queue_entry->packet.raw_payload, samples, num_samples * sizeof(float));
-   return vita_send_packet(vita, queue_entry);
+   memcpy(packet->raw_payload, samples, num_samples * sizeof(float));
+   return vita_send_packet(vita, packet);
 }
 
 // ****************************************

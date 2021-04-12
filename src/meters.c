@@ -229,8 +229,7 @@ ssize_t waveform_meters_send(struct waveform_t* wf)
 {
    struct waveform_meter* meter;
    int i = 0;
-   struct xmit_queue* queue_entry = calloc(1, sizeof(*queue_entry));
-   struct waveform_vita_packet_sans_ts* packet = (struct waveform_vita_packet_sans_ts*) &(queue_entry->packet);
+   struct waveform_vita_packet_sans_ts* packet = calloc(1, sizeof(*packet));
 
    packet->packet_type = VITA_PACKET_TYPE_EXT_DATA_WITH_STREAM_ID;
    packet->stream_id = METER_STREAM_ID;
@@ -243,7 +242,7 @@ ssize_t waveform_meters_send(struct waveform_t* wf)
       if (i >= sizeof(packet->meter) / sizeof(packet->meter[0]))
       {
          waveform_log(WF_LOG_ERROR, "Meters exceed max size\n");
-         free(queue_entry);
+         free(packet);
          return -EFBIG;
       }
 
@@ -258,5 +257,5 @@ ssize_t waveform_meters_send(struct waveform_t* wf)
 
    packet->length = i;
 
-   return vita_send_packet(&wf->vita, queue_entry);
+   return vita_send_packet(&wf->vita, (struct waveform_vita_packet*) packet);
 }

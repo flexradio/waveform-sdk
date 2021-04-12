@@ -92,12 +92,6 @@ struct waveform_vita_packet_sans_ts {
 };
 #pragma pack(pop)
 
-struct xmit_queue {
-   struct waveform_vita_packet packet;
-   size_t len;
-   struct xmit_queue* next;
-};
-
 struct vita {
    int sock;
    unsigned short port;// XXX Do we really need to keep this around?
@@ -129,7 +123,7 @@ int vita_init(struct waveform_t* wf);
 /// @param packet a reference to the packet contents
 /// @returns 0 on success or a negative value on an error.  Return values are negative values of errno.h and will return
 ///          -E2BIG on a short write to the network.
-ssize_t vita_send_packet(struct vita* vita, struct xmit_queue* queue_entry);
+ssize_t vita_send_packet(struct vita* vita, struct waveform_vita_packet* packet);
 
 /// @brief Sends a data packet to the radio
 /// @details
