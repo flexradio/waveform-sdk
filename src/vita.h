@@ -26,6 +26,7 @@
 // ****************************************
 #include <event2/event.h>
 #include <pthread_workqueue.h>
+#include <stdint.h>
 #include <tgmath.h>
 
 #include "waveform_api.h"
@@ -96,9 +97,9 @@ struct vita {
    unsigned short port;// XXX Do we really need to keep this around?
    pthread_t thread;
    struct event_base* base;
-   struct event* evt;
-   unsigned int meter_sequence;
-   unsigned int data_sequence;
+   struct event* read_evt;
+   _Atomic uint8_t meter_sequence;
+   _Atomic uint8_t data_sequence;
    uint32_t tx_stream_id;
    uint32_t rx_stream_id;
 };
@@ -120,7 +121,9 @@ int vita_init(struct waveform_t* wf);
 ///          the stream, and the stream id itself.
 /// @param vita The VITA loop to which to send the packet
 /// @param packet a reference to the packet contents
-void vita_send_packet(struct vita* vita, struct waveform_vita_packet* packet);
+/// @returns 0 on success or a negative value on an error.  Return values are negative values of errno.h and will return
+///          -E2BIG on a short write to the network.
+ssize_t vita_send_packet(struct vita* vita, struct waveform_vita_packet* packet);
 
 /// @brief Sends a data packet to the radio
 /// @details
@@ -129,8 +132,9 @@ void vita_send_packet(struct vita* vita, struct waveform_vita_packet* packet);
 /// @param num_samples The number of floating point samples in the samples array
 /// @param type The type of data packet to send, either TRANSMITTER_DATA to send the samples to the radio transmitter, or SPEAKER_DATA
 ///        to send it to the radio's speaker.
-void vita_send_data_packet(struct vita* vita, float* samples,
-                           size_t num_samples, enum waveform_packet_type type);
+/// @returns 0 on success or a negative value on an error.  Return values are negative values of errno.h and will return
+///          -E2BIG on a short write to the network.
+ssize_t vita_send_data_packet(struct vita* vita, float* samples, size_t num_samples, enum waveform_packet_type type);
 
 /// @brief Stops a VITA processing loop and releases all of its resources
 /// @details When you are done using a VITA loop use this function to clean up resources.  Usage would be, for example, when the

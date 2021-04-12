@@ -80,6 +80,8 @@ sds find_kwarg(int argc, sds* argv, sds key)
          sdsfreesplitres(kvp, count);
          return value;
       }
+
+      sdsfreesplitres(kvp, count);
    }
 
    return NULL;

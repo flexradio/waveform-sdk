@@ -26,6 +26,7 @@
 // ****************************************
 #include <arpa/inet.h>
 #include <assert.h>
+#include <inttypes.h>
 #include <limits.h>
 #include <netinet/in.h>
 #include <pthread.h>
@@ -124,7 +125,9 @@ static void add_sequence_to_response_queue(struct waveform_t* waveform,
    new_entry->ctx = ctx;
    new_entry->wf = waveform;
 
+   pthread_mutex_lock(&(waveform->radio->rq_lock));
    LL_APPEND(waveform->radio->rq_head, new_entry);
+   pthread_mutex_unlock(&(waveform->radio->rq_lock));
 }
 
 /// @brief Work queue function to execute callback for a command response
@@ -164,6 +167,8 @@ static void rq_call_cb(void* arg)
    {
       free(desc->rq_entry);
    }
+
+   sdsfree(desc->message);
    free(desc);
 }
 
@@ -190,7 +195,9 @@ static void complete_response_entry(struct radio_t* radio,
    unsigned int gencountp;
    struct resp_cb_wq_desc* desc = calloc(1, sizeof(*desc));
 
+   pthread_mutex_lock(&(radio->rq_lock));
    LL_SEARCH_SCALAR(radio->rq_head, current_entry, sequence, sequence);
+   pthread_mutex_unlock(&(radio->rq_lock));
    if (!current_entry)
    {
       free(desc);
@@ -201,16 +208,19 @@ static void complete_response_entry(struct radio_t* radio,
    desc->rq_entry = current_entry;
    desc->message = sdsdup(message);
    desc->type = type;
-   pthread_workqueue_additem_np(radio->cb_wq, rq_call_cb, desc, &handle,
-                                &gencountp);
 
    //  Only remove the entry from the queue if we're complete, or if we have failed
    //  to queue the command.  Otherwise we need it in there to call the response
    //  callback when the command actually executes.
    if (type == CMD_CB_COMPLETE || (type == CMD_CB_QUEUED && code != 0))
    {
+      pthread_mutex_lock(&(radio->rq_lock));
       LL_DELETE(radio->rq_head, current_entry);
+      pthread_mutex_unlock(&(radio->rq_lock));
    }
+
+   pthread_workqueue_additem_np(radio->cb_wq, rq_call_cb, desc, &handle,
+                                &gencountp);
 }
 
 /// @brief Destroys the command response queue
@@ -219,11 +229,13 @@ static void destroy_response_queue(struct waveform_t* waveform)
 {
    struct response_queue_entry *current_entry, *tmp_entry;
 
+   pthread_mutex_lock(&(waveform->radio->rq_lock));
    LL_FOREACH_SAFE(waveform->radio->rq_head, current_entry, tmp_entry)
    {
       LL_DELETE(waveform->radio->rq_head, current_entry);
       free(current_entry);
    }
+   pthread_mutex_unlock(&(waveform->radio->rq_lock));
 }
 
 /// @brief Work queue function to execute callback for a state change
@@ -884,10 +896,10 @@ eb_abort:
 // ****************************************
 // Global Functions
 // ****************************************
-long waveform_radio_send_api_command_cb_va(struct waveform_t* wf,
-                                           struct timespec* at,
-                                           waveform_response_cb_t cb, waveform_response_cb_t queued_cb, void* arg,
-                                           char* command, va_list ap)
+int32_t waveform_radio_send_api_command_cb_va(struct waveform_t* wf,
+                                              struct timespec* at,
+                                              waveform_response_cb_t cb, waveform_response_cb_t queued_cb, void* arg,
+                                              char* command, va_list ap)
 {
    int cmdlen;
    char* message_format;
@@ -896,12 +908,12 @@ long waveform_radio_send_api_command_cb_va(struct waveform_t* wf,
    struct evbuffer* output = bufferevent_get_output(wf->radio->bev);
    if (at)
    {
-      cmdlen = asprintf(&message_format, "C%ld|@%ld.%ld|%s\n", wf->radio->sequence, at->tv_sec, at->tv_nsec * 1000,
+      cmdlen = asprintf(&message_format, "C%" PRIu32 "|@%ld.%ld|%s\n", wf->radio->sequence, at->tv_sec, at->tv_nsec * 1000,
                         command);
    }
    else
    {
-      cmdlen = asprintf(&message_format, "C%ld|%s\n", wf->radio->sequence,
+      cmdlen = asprintf(&message_format, "C%" PRIu32 "|%s\n", wf->radio->sequence,
                         command);
    }
 
@@ -925,7 +937,9 @@ long waveform_radio_send_api_command_cb_va(struct waveform_t* wf,
       add_sequence_to_response_queue(wf, cb, queued_cb, arg);
    }
 
-   return ++wf->radio->sequence;
+   wf->radio->sequence = (wf->radio->sequence + 1) & ~(1 << 31);
+
+   return (uint32_t) wf->radio->sequence;
 }
 
 // ****************************************
@@ -943,11 +957,14 @@ struct radio_t* waveform_radio_create(struct sockaddr_in* addr)
 
    pthread_workqueue_init_np();
 
+   pthread_mutex_init(&(radio->rq_lock), NULL);
+
    return radio;
 }
 
 void waveform_radio_destroy(struct radio_t* radio)
 {
+   pthread_mutex_destroy(&(radio->rq_lock));
    free(radio);
 }
 

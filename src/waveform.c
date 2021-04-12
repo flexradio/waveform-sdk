@@ -151,9 +151,9 @@ void waveform_destroy(struct waveform_t* waveform)
    free(waveform);
 }
 
-inline long waveform_send_api_command_cb(struct waveform_t* waveform,
-                                         waveform_response_cb_t cb, void* arg,
-                                         char* command, ...)
+inline int32_t waveform_send_api_command_cb(struct waveform_t* waveform,
+                                            waveform_response_cb_t cb, void* arg,
+                                            char* command, ...)
 {
    va_list ap;
    long ret;
@@ -166,8 +166,8 @@ inline long waveform_send_api_command_cb(struct waveform_t* waveform,
    return ret;
 }
 
-long waveform_send_timed_api_command_cb(struct waveform_t* waveform, struct timespec* at, waveform_response_cb_t complete_cb,
-                                        waveform_response_cb_t queued_cb, void* arg, char* command, ...)
+int32_t waveform_send_timed_api_command_cb(struct waveform_t* waveform, struct timespec* at, waveform_response_cb_t complete_cb,
+                                           waveform_response_cb_t queued_cb, void* arg, char* command, ...)
 {
    va_list ap;
    long ret;
@@ -250,9 +250,9 @@ inline int waveform_register_unknown_data_cb(struct waveform_t* waveform,
    return waveform_register_cb(&waveform->unk_data_cbs, NULL, (waveform_cmd_cb_t) cb, arg);
 }
 
-inline void waveform_send_data_packet(struct waveform_t* waveform,
-                                      float* samples, size_t num_samples,
-                                      enum waveform_packet_type type)
+inline ssize_t waveform_send_data_packet(struct waveform_t* waveform,
+                                         float* samples, size_t num_samples,
+                                         enum waveform_packet_type type)
 {
    vita_send_data_packet(&waveform->vita, samples, num_samples, type);
 }

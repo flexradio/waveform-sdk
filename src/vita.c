@@ -26,6 +26,7 @@
 #include <errno.h>
 #include <pthread.h>
 #include <semaphore.h>
+#include <stdatomic.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -64,7 +65,7 @@ struct data_cb_wq_desc {
 static sem_t wq_sem;
 static pthread_mutex_t wq_lock;
 static struct data_cb_wq_desc* wq = NULL;
-static bool wq_running = false;
+static _Atomic bool wq_running = false;
 static pthread_t wq_thread;
 
 // ****************************************
@@ -206,7 +207,7 @@ static void* vita_evt_loop(void* arg)
 
    waveform_log(WF_LOG_DEBUG, "Initializing VITA-49 engine...\n");
 
-   vita->sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+   vita->sock = socket(AF_INET, SOCK_DGRAM | SOCK_NONBLOCK, IPPROTO_UDP);
    if (vita->sock == -1)
    {
       waveform_log(WF_LOG_ERROR, " Failed to initialize VITA socket: %s\n", strerror(errno));
@@ -238,15 +239,15 @@ static void* vita_evt_loop(void* arg)
       goto fail_socket;
    }
 
-   vita->evt = event_new(vita->base, vita->sock, EV_READ | EV_PERSIST, vita_read_cb, vita);
-   if (!vita->evt)
+   vita->read_evt = event_new(vita->base, vita->sock, EV_READ | EV_PERSIST, vita_read_cb, vita);
+   if (!vita->read_evt)
    {
-      waveform_log(WF_LOG_ERROR, "Couldn't create VITA event\n");
+      waveform_log(WF_LOG_ERROR, "Couldn't create VITA read event\n");
       goto fail_base;
    }
-   if (event_add(vita->evt, NULL) == -1)
+   if (event_add(vita->read_evt, NULL) == -1)
    {
-      waveform_log(WF_LOG_ERROR, "Couldn't add VITA event to base\n");
+      waveform_log(WF_LOG_ERROR, "Couldn't add VITA read event to base\n");
       goto fail_evt;
    }
 
@@ -258,13 +259,12 @@ static void* vita_evt_loop(void* arg)
    waveform_send_api_command_cb(wf, NULL, NULL, "waveform set %s udpport=%hu", wf->name, vita->port);
    waveform_send_api_command_cb(wf, NULL, NULL, "client udpport %hu", vita->port);
 
-
    event_base_dispatch(vita->base);
 
    waveform_log(WF_LOG_DEBUG, "VITA thread ending...\n");
 
 fail_evt:
-   event_free(vita->evt);
+   event_free(vita->read_evt);
 fail_base:
    event_base_free(vita->base);
 fail_socket:
@@ -274,6 +274,8 @@ fail:
    return NULL;
 }
 
+#pragma clang diagnostic push
+#pragma ide diagnostic ignored "EndlessLoop"
 /// @brief Data callback event loop
 /// @details An event loop for running user-defined data callbacks.  This runs and
 ///          takes tasks from the wq linked list and executes them in order.  This
@@ -335,24 +337,20 @@ static void* vita_cb_loop(void* arg __attribute__((unused)))
 
       free(current_task);
    }
-}
 
-/// @brief Perform a write to the VITA socket
-/// @details When writing to the VITA socket via libevent, we register an event that has EV_WRITE as its trigger.  This will mean
-///          that the event will be called when the socket is ready to receive writes.  This should be almost immediately for a UDP
-///          socket like this.  When that event is triggered, this callback is performed.  We do this as a one-shot callback and register
-///          another event when we are ready to write again.
-/// @param socket The socket upon which the VITA packet was received
-/// @param what The event type that occurred
-/// @param ctx A reference to the VITA packet to be sent
-static void vita_send_packet_cb(evutil_socket_t socket, short what, void* arg)
+   return NULL;
+}
+#pragma clang diagnostic pop
+
+/// @brief Prepare a vita packet for processing
+/// @details Fills in various calculated fields in the packet to ready it for
+///          transmission.  This includes calculating th epacket size, setting
+///          the timestamp and resolving the byte order.
+/// @param packet The packet to prepare
+/// @returns The length of the packet to be sent.
+static size_t vita_prep_packet(struct waveform_vita_packet* packet)
 {
-   struct waveform_vita_packet* packet = (struct waveform_vita_packet*) arg;
-   if (!(what & EV_WRITE))
-   {
-      waveform_log(WF_LOG_INFO, "Callback is not for a read?!\n");
-      return;
-   }
+   size_t packet_len;
 
    if ((packet->timestamp_type & 0x50u) != 0)
    {
@@ -360,8 +358,7 @@ static void vita_send_packet_cb(evutil_socket_t socket, short what, void* arg)
       packet->timestamp_frac = 0;
    }
 
-   ssize_t bytes_sent;
-   size_t packet_len = VITA_PACKET_HEADER_SIZE(packet) + (packet->length * sizeof(float));
+   packet_len = VITA_PACKET_HEADER_SIZE(packet) + (packet->length * sizeof(float));
    packet->length += (VITA_PACKET_HEADER_SIZE(packet) / 4);
    assert(packet_len % 4 == 0);
 
@@ -374,19 +371,7 @@ static void vita_send_packet_cb(evutil_socket_t socket, short what, void* arg)
 
    swap_frac_timestamp((uint32_t*) &(packet->timestamp_frac));
 
-   if ((bytes_sent = send(socket, packet, packet_len, 0)) == -1)
-   {
-      waveform_log(WF_LOG_ERROR, "Error sending vita packet: %s\n", strerror(errno));
-      return;
-   }
-
-   if (bytes_sent != packet_len)
-   {
-      waveform_log(WF_LOG_ERROR, "Short write on vita send\n");
-      return;
-   }
-
-   free(packet);
+   return packet_len;
 }
 
 // ****************************************
@@ -440,43 +425,44 @@ void vita_destroy(struct waveform_t* wf)
    }
 }
 
-void vita_send_packet(struct vita* vita, struct waveform_vita_packet* packet)
+ssize_t vita_send_packet(struct vita* vita, struct waveform_vita_packet* packet)
 {
-   vita->evt = event_new(vita->base, vita->sock, EV_WRITE, vita_send_packet_cb, packet);
-   if (!vita->evt)
+   size_t len = vita_prep_packet(packet);
+
+   ssize_t bytes_sent;
+   if ((bytes_sent = send(vita->sock, packet, len, 0)) == -1)
    {
-      waveform_log(WF_LOG_ERROR, "Couldn't create VITA event\n");
-      return;
+      waveform_log(WF_LOG_ERROR, "Error sending vita packet: %d\n", errno);
+      return -errno;
    }
-   if (event_add(vita->evt, NULL) == -1)
+
+   if (bytes_sent != len)
    {
-      waveform_log(WF_LOG_ERROR, "Couldn't add VITA event to base\n");
-      event_free(vita->evt);
-      return;
+      waveform_log(WF_LOG_ERROR, "Short write on vita send\n");
+      return -E2BIG;
    }
+
+   return 0;
 }
 
-void vita_send_data_packet(struct vita* vita, float* samples, size_t num_samples, enum waveform_packet_type type)
+ssize_t vita_send_data_packet(struct vita* vita, float* samples, size_t num_samples, enum waveform_packet_type type)
 {
    if (num_samples * sizeof(float) > MEMBER_SIZE(struct waveform_vita_packet, raw_payload))
    {
       waveform_log(WF_LOG_ERROR, "%lu samples exceeds maximum sending limit of %lu samples\n", num_samples,
                    MEMBER_SIZE(struct waveform_vita_packet, raw_payload) / sizeof(float));
-      return;
+      return -EFBIG;
    }
 
+   //  We go ahead and allocate a queue entry here because we don't want to copy it unnecessarily if we have to queue it in
+   //  vita_send_packet.  The overhead here is really only the size of a pointer, which isn't very big.
    struct waveform_vita_packet* packet = calloc(1, sizeof(*packet));
 
    packet->packet_type = VITA_PACKET_TYPE_IF_DATA_WITH_STREAM_ID;
    packet->class_id = AUDIO_CLASS_ID;
    packet->length = num_samples;// Length is in 32-bit words
 
-   //  XXX This is an issue because the pointer dereference won't be atomic.  If two threads go at this at once
-   //  XXX the value could get corrupted.  It's not greatly important, but it will screw up the sequence.  It should
-   //  XXX probably be done on the IO thread, but we lose the reference to the struct vita when we call the
-   //  XXX event callback.
    packet->timestamp_type = 0x50U | (vita->data_sequence++ & 0x0fu);
-
 
    switch (type)
    {
@@ -492,7 +478,7 @@ void vita_send_data_packet(struct vita* vita, float* samples, size_t num_samples
    }
 
    memcpy(packet->raw_payload, samples, num_samples * sizeof(float));
-   vita_send_packet(vita, packet);
+   return vita_send_packet(vita, packet);
 }
 
 // ****************************************
