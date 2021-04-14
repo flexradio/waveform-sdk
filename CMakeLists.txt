@@ -44,6 +44,30 @@ if (NOT sds_POPULATED)
 endif ()
 set(sds_SOURCES ${sds_SOURCE_DIR}/sds.c ${sds_SOURCE_DIR}/sds.h ${sds_SOURCE_DIR}/sdsalloc.h)
 
+FetchContent_Declare(pthread-wq
+        GIT_REPOSITORY https://github.com/mheily/libpwq.git
+        GIT_TAG v0.9.1
+        )
+FetchContent_GetProperties(pthread-wq)
+if (NOT pthread-wq_POPULATED)
+    FetchContent_Populate(pthread-wq)
+endif ()
+
+add_library(pthread_workqueue STATIC
+        ${pthread-wq_SOURCE_DIR}/src/api.c
+        ${pthread-wq_SOURCE_DIR}/src/witem_cache.c
+        ${pthread-wq_SOURCE_DIR}/src/linux/load.c
+        ${pthread-wq_SOURCE_DIR}/src/linux/thread_info.c
+        ${pthread-wq_SOURCE_DIR}/src/linux/thread_rt.c
+        )
+target_include_directories(pthread_workqueue
+        PUBLIC
+        ${pthread-wq_SOURCE_DIR}/include
+        PRIVATE
+        ${pthread-wq_SOURCE_DIR}/src
+        )
+target_compile_options(pthread_workqueue PUBLIC -fPIC)
+
 FetchContent_Declare(utlist
         GIT_REPOSITORY https://github.com/troydhanson/uthash.git
         GIT_TAG v2.1.0
@@ -54,7 +78,6 @@ if (NOT utlist_POPULATED)
 endif ()
 
 find_package(LibEvent REQUIRED)
-find_package(PthreadWorkQueue REQUIRED)
 
 add_library(waveform SHARED ${WAVEFORM_SRCS} ${WAVEFORM_HDRS} ${sds_SOURCES})
 set_target_properties(waveform PROPERTIES
@@ -65,9 +88,10 @@ set_target_properties(waveform PROPERTIES
 target_link_libraries(waveform
         PUBLIC
         LibEvent::LibEvent
-        PthreadWorkQueue::PthreadWorkQueue
         pthread
         m
+        PRIVATE
+        pthread_workqueue
         )
 
 target_include_directories(waveform
