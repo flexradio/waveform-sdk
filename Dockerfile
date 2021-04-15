@@ -28,5 +28,8 @@ RUN mk-build-deps --install --tool='apt-get -o Debug::pkgProblemResolver=yes --n
       --host-arch=${ARCH} --build-arch=amd64 /tmp/wfsdk-control && \
     rm /tmp/wfsdk-control
 
+COPY --from=flexradio/smoothlake-bamboo /opt/x-tools/rasfire/ /opt/x-tools/rasfire/
+COPY --from=flexradio/smoothlake-bamboo /opt/x-tools/dragonfire/ /opt/x-tools/dragonfire/
+
 RUN useradd -c "Bamboo User" -m -u 999 -U bamboo
 USER bamboo:bamboo
