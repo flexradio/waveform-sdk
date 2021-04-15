@@ -59,6 +59,8 @@ add_library(pthread_workqueue STATIC
         ${pthread-wq_SOURCE_DIR}/src/linux/load.c
         ${pthread-wq_SOURCE_DIR}/src/linux/thread_info.c
         ${pthread-wq_SOURCE_DIR}/src/linux/thread_rt.c
+        ${pthread-wq_SOURCE_DIR}/src/linux/thread_rt.c
+        ${pthread-wq_SOURCE_DIR}/src/posix/manager.c
         )
 target_include_directories(pthread_workqueue
         PUBLIC
