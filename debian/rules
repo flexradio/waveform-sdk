@@ -1,0 +1,11 @@
+#!/usr/bin/make -f
+
+ifneq ($(strip $(CMAKE_TOOLCHAIN_FILE)),)
+override_dh_auto_configure:
+	dh_auto_configure -- -DCMAKE_TOOLCHAIN_FILE=$(CMAKE_TOOLCHAIN_FILE)
+endif
+
+%:
+	echo "Build: ${DEB_BUILD_ARCH}"
+	echo "Host: ${DEB_HOST_ARCH}"
+	dh $@ --buildsystem=cmake

@@ -44,6 +44,32 @@ if (NOT sds_POPULATED)
 endif ()
 set(sds_SOURCES ${sds_SOURCE_DIR}/sds.c ${sds_SOURCE_DIR}/sds.h ${sds_SOURCE_DIR}/sdsalloc.h)
 
+FetchContent_Declare(pthread-wq
+        GIT_REPOSITORY https://github.com/mheily/libpwq.git
+        GIT_TAG v0.9.1
+        )
+FetchContent_GetProperties(pthread-wq)
+if (NOT pthread-wq_POPULATED)
+    FetchContent_Populate(pthread-wq)
+endif ()
+
+add_library(pthread_workqueue STATIC
+        ${pthread-wq_SOURCE_DIR}/src/api.c
+        ${pthread-wq_SOURCE_DIR}/src/witem_cache.c
+        ${pthread-wq_SOURCE_DIR}/src/linux/load.c
+        ${pthread-wq_SOURCE_DIR}/src/linux/thread_info.c
+        ${pthread-wq_SOURCE_DIR}/src/linux/thread_rt.c
+        ${pthread-wq_SOURCE_DIR}/src/linux/thread_rt.c
+        ${pthread-wq_SOURCE_DIR}/src/posix/manager.c
+        )
+target_include_directories(pthread_workqueue
+        PUBLIC
+        ${pthread-wq_SOURCE_DIR}/include
+        PRIVATE
+        ${pthread-wq_SOURCE_DIR}/src
+        )
+target_compile_options(pthread_workqueue PUBLIC -fPIC)
+
 FetchContent_Declare(utlist
         GIT_REPOSITORY https://github.com/troydhanson/uthash.git
         GIT_TAG v2.1.0
@@ -54,7 +80,6 @@ if (NOT utlist_POPULATED)
 endif ()
 
 find_package(LibEvent REQUIRED)
-find_package(PthreadWorkQueue REQUIRED)
 
 add_library(waveform SHARED ${WAVEFORM_SRCS} ${WAVEFORM_HDRS} ${sds_SOURCES})
 set_target_properties(waveform PROPERTIES
@@ -65,14 +90,18 @@ set_target_properties(waveform PROPERTIES
 target_link_libraries(waveform
         PUBLIC
         LibEvent::LibEvent
-        PthreadWorkQueue::PthreadWorkQueue
         pthread
         m
+        PRIVATE
+        pthread_workqueue
         )
+target_link_options(waveform PRIVATE -Wl,--as-needed)
 
 target_include_directories(waveform
+        PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:include/waveform>
         PRIVATE
-        ${CMAKE_SOURCE_DIR}/include
         ${sds_SOURCE_DIR}
         ${utlist_SOURCE_DIR}/src
         )
@@ -85,7 +114,7 @@ if (DOXYGEN_FOUND)
     set(DOXYGEN_PROJECT_NUMBER "1.0")
     set(DOXYGEN_GENERATE_LATEX NO)
 
-    doxygen_add_docs(doxygen include/waveform_api.h)
+    doxygen_add_docs(doxygen include/waveform_api.h ALL)
     install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/html TYPE DOC)
 endif ()
 
@@ -137,14 +166,3 @@ install(
         DESTINATION
         ${ConfigPackageLocation}
 )
-
-set(CPACK_GENERATOR "DEB")
-set(CPACK_PACKAGE_NAME "libwaveform")
-set(CPACK_PACKAGE_VERSION "1.6")
-set(CPACK_PACKAGE_CONTACT "Annaliese McDermond <anna@flex-radio.com>")
-set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
-set(CPACK_DEBIAN_PACKAGE_GENERATE_SHLIBS ON)
-set(CPACK_DEBIAN_PACKAGE_GENERATE_SHLIBS_POLICY ">=")
-set(CPACK_DEBIAN_PACKAGE_DEBUG ON)
-set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
-include(CPack)
