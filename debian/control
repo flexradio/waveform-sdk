@@ -1,0 +1,14 @@
+Source: libwaveform
+Section: development
+Priority: optional
+Maintainer: FlexRadio Systems Software Engineering <software@flex-radio.com>
+Build-Depends: debhelper (>= 11),
+               libevent-dev
+Standards-Version: 4.4.1
+Homepage: http://www.flexradio.com
+
+Package: libwaveform
+Architecture: any
+Depends: ${misc:Depends},
+         ${shlibs:Depends}
+Description: The FlexRadio Waveform SDK

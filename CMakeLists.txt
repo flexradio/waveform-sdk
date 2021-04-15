@@ -95,10 +95,13 @@ target_link_libraries(waveform
         PRIVATE
         pthread_workqueue
         )
+target_link_options(waveform PRIVATE -Wl,--as-needed)
 
 target_include_directories(waveform
+        PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:include/waveform>
         PRIVATE
-        ${CMAKE_SOURCE_DIR}/include
         ${sds_SOURCE_DIR}
         ${utlist_SOURCE_DIR}/src
         )
@@ -111,7 +114,7 @@ if (DOXYGEN_FOUND)
     set(DOXYGEN_PROJECT_NUMBER "1.0")
     set(DOXYGEN_GENERATE_LATEX NO)
 
-    doxygen_add_docs(doxygen include/waveform_api.h)
+    doxygen_add_docs(doxygen include/waveform_api.h ALL)
     install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/html TYPE DOC)
 endif ()
 
@@ -163,14 +166,3 @@ install(
         DESTINATION
         ${ConfigPackageLocation}
 )
-
-set(CPACK_GENERATOR "DEB")
-set(CPACK_PACKAGE_NAME "libwaveform")
-set(CPACK_PACKAGE_VERSION "1.6")
-set(CPACK_PACKAGE_CONTACT "Annaliese McDermond <anna@flex-radio.com>")
-set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
-set(CPACK_DEBIAN_PACKAGE_GENERATE_SHLIBS ON)
-set(CPACK_DEBIAN_PACKAGE_GENERATE_SHLIBS_POLICY ">=")
-set(CPACK_DEBIAN_PACKAGE_DEBUG ON)
-set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
-include(CPack)

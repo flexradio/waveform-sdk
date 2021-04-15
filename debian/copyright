@@ -1,0 +1,200 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: smartsdr
+Upstream-Contact: FlexRadio Systems <software@flex-radio.com>
+Source: <url://www.flex-radio.com>
+Disclaimer: This package is not a part of Debian because it is a commercial product that runs on top of the platform.
+
+Files: *
+Copyright: 2014-2021 FlexRadio Systems <software@flex-radio.com>
+License: Proprietary_1
+ FlexRadio End User License Agreement
+ .
+ This copy of the Skyline System Controller Software ("the Software Product") and accompanying documentation is licensed
+ and not sold. The Software Product is protected by copyright laws and treaties, as well as laws and treaties related
+ to other forms of intellectual property. Bronze Bear Communications, Inc. or its subsidiaries, affiliates, and
+ suppliers (collectively "FlexRadio Systems", “Company”, “we” or “us”) own intellectual property rights in the Software
+ Product. The Licensee's ("you" or "your") license to download, use, copy, or change the Software Product is subject
+ to these rights and to all the terms and conditions of this End User License Agreement ("Agreement").
+ .
+ Acceptance
+ YOU ACCEPT AND AGREE TO BE BOUND BY THE TERMS OF THIS AGREEMENT BY SELECTING THE "ACCEPT" OPTION AND INSTALLING THE
+ SOFTWARE PRODUCT OR BY DOWNLOADING, USING, OR COPYING THE SOFTWARE PRODUCT. YOU MUST AGREE TO ALL OF THE TERMS OF
+ THIS AGREEMENT BEFORE YOU WILL BE ALLOWED TO INSTALL THE SOFTWARE PRODUCT. IF YOU DO NOT AGREE TO ALL OF THE TERMS
+ OF THIS AGREEMENT, YOU MUST NOT INSTALL, USE, OR COPY THE SOFTWARE PRODUCT.
+ .
+ License Grant
+ FlexRadio Systems grants to you, and you accept, a limited, non-exclusive and revocable license to use the Software
+ Product, in machine-readable, object code form only. You shall use the Software Product only as authorized in this
+ Agreement. This Agreement does not convey to you any ownership rights or any other interest in the Software Product.
+ This Agreement entitles you to install the Software Product on any number of computers for exclusive use with
+ FlexRadio Systems’ software defined radios (“SDRs”). In addition, you may make archival copies of the Software
+ Product. The archival copies may be on a storage medium other than a hard drive, and may only be used for the
+ reinstallation of the Software Product. This Agreement permits the installation or use of multiple copies of the
+ Software Product, and the installation of the Software Product on more than one computer at any given time, on a
+ system that allows shared use of applications, on a multi-user network, and on any configuration or system of
+ computers that allows multiple users.
+ .
+ multiFLEX™
+ If more than one user desires to use the Software Product to connect to the SDR or otherwise, you must obtain a
+ multiFLEX license, which may be subject to additional license fees based on various factors such as number of users,
+ type of use, and whether or not such use is for profit.  If you have obtained the appropriate multiFLEX license, you
+ may allow only the number of people to access and use the Software Product and SDR corresponding to your multiFLEX
+ license. You are not permitted to employ any device, whether hardware, software or otherwise, designed to circumvent,
+ or which has the effect of circumventing, the license restrictions set forth in this paragraph or which allows
+ multiple users to access or use the Software Product or SDR without first obtaining the applicable multiFLEX license.
+ .
+ Term
+ This Agreement will become effective on the date you acquire the Software Product and will remain in force until
+ terminated. You may terminate the license, at any time, by removing the Software Product from all of your computers
+ and destroying the original Software Product. This License will automatically terminate if you breach any of the
+ terms or conditions set out in this Agreement. Upon termination of this Agreement for any reason, you shall
+ immediately cease all use of the Software product, remove the Software Product from all of your computers, and either
+ destroy the original Software Product and all copies of the Software or return the Software to FlexRadio Systems at
+ your own cost.
+ .
+ Right to Install
+ You shall install the Software Product ONLY on computers that you own or on a computer which you have been given
+ explicit verbal or written permission to install from the computer owner.
+ .
+ Restrictions on Transfer
+ Without first obtaining the express written consent of FlexRadio Systems, you may not assign your rights and
+ obligations under this Agreement, or redistribute, encumber, sell, rent, lease, sublicense, or otherwise transfer
+ your rights to the Software Product.
+ .
+ Restrictions on Use
+ You may not decompile, "reverse-engineer", disassemble, or otherwise attempt to derive the intellectual property
+ or source code for the Software Product.  The Software Product may only be used with unmodified FlexRadio Systems’
+ software defined radio (SDR) hardware.  Use of the Software Product with any other hardware or in conjunction with
+ any other non-FlexRadio Systems software product that interfaces, communicates or emulates FlexRadio Systems’ SDR
+ hardware constitutes a breach of the Agreement.
+ .
+ Restrictions on Alteration
+ You may not modify the Software Product or create any derivative work of the Software Product or its accompanying
+ documentation. Derivative works include but are not limited to translations. You may not alter any files or libraries
+ in any portion of the Software Product.
+ .
+ Legal Use
+ SmartLink, a software and service capability provided with the Software Product, includes the use of a Company
+ computer network server ("Server") to broker a connection between an individual using SmartLink ("Operator") and a
+ FlexRadio Systems receiver or transceiver ("Radio") in a location that may or may not be in a different legal
+ jurisdiction from the Operator. SmartLink enables a network connection between the Operator and the Radio and
+ provides the ability to receive and transmit signals, demodulated audio and complex intermediate frequency signals,
+ spectrum plots and other spectrum information under control of the Operator. The legality of the use of SmartLink in
+ any jurisdiction may vary by any number of factors including, but not limited to, the country where the Operator
+ resides, the location or technology comprising the network, the location or technology used in the Server, the
+ location of the Radio, and licenses or authorizations that may be required in one or more jurisdictions. You agree
+ that your use of SmartLink will follow all applicable laws in the legal jurisdictions where you use the SmartLink and
+ that you are responsible for all actions that occur in regards to your use of SmartLink. You agree to indemnify and
+ hold harmless the Company, its officers, employees, agents, and affiliates, for any cause of action arising from your
+ use of Software or SmartLink.
+ .
+ Limited Software Product Warranty
+ For a period of thirty (30) days from the date of shipment or from the date that you download the Software Product,
+ as applicable, FlexRadio Systems warrants that when properly installed and used under normal conditions, the Software
+ Product will perform substantially as advertised. FlexRadio Systems warrants that it will use commercially reasonable
+ efforts to maintain a 99.9% uptime for the network-based aspects of SmartLink; provided, however, that FlexRadio's
+ warranty does not apply to any downtime resulting from (i) a failure in a third party’s or your network
+ infrastructure or (ii) scheduled updates, upgrades or maintenance.
+ .
+ Limited Storage Medium Warranty
+ For a period of ninety (90) days from the date of shipment or from the date that you download the Software Product,
+ as applicable, FlexRadio Systems warrants that when properly installed and used under normal conditions, the storage
+ medium on which the Software Product is shipped will be free of material defects in material and workmanship.
+ .
+ Disclaimer of Warranties and Limitation of Liability
+ UNLESS OTHERWISE EXPLICITLY AGREED TO IN WRITING BY FLEXRADIO SYSTEMS, FLEXRADIO SYSTEMS MAKES NO OTHER WARRANTIES,
+ EXPRESS OR IMPLIED, IN FACT OR IN LAW, INCLUDING, BUT NOT LIMITED TO, ANY IMPLIED WARRANTIES OF MERCHANTABILITY OR
+ FITNESS FOR A PARTICULAR PURPOSE OTHER THAN AS SET FORTH IN THIS AGREEMENT OR IN THE LIMITED WARRANTY DOCUMENTS
+ PROVIDED WITH THE SOFTWARE PRODUCT.
+ .
+ FlexRadio Systems makes no warranty that the Software Product will meet your requirements or operate under your
+ specific conditions of use. FlexRadio Systems makes no warranty that operation of the Software Product will be
+ secure, error free, or free from interruption. YOU MUST DETERMINE WHETHER THE SOFTWARE PRODUCT SUFFICIENTLY MEETS
+ YOUR REQUIREMENTS FOR SECURITY AND UNINTERRUPTABILITY. YOU BEAR SOLE RESPONSIBILITY AND ALL LIABILITY FOR ANY LOSS
+ INCURRED DUE TO FAILURE OF THE SOFTWARE PRODUCT TO MEET YOUR REQUIREMENTS. FLEXRADIO SYSTEMS WILL NOT, UNDER ANY
+ CIRCUMSTANCES, BE RESPONSIBLE OR LIABLE FOR THE LOSS OF DATA ON ANY COMPUTER, CONNECTED HARDWARE OR INFORMATION
+ STORAGE DEVICE.
+ .
+ High Risk Activities. The Software Product is not fault-tolerant and is not designed, manufactured or intended for
+ use or resale in hazardous environments requiring fail-safe performance, including without limitation the operation
+ of nuclear facilities, aircraft navigation or communication systems, air traffic control, life support, ambulance,
+ or search and rescue, in which the failure of the Software Product could lead directly to death, personal injury, or
+ severe physical or environmental damage. FlexRadio Systems and its suppliers specifically disclaim any express or
+ implied warranty or liability for such activities.
+ .
+ UNDER NO CIRCUMSTANCES SHALL FLEXRADIO SYSTEMS, ITS DIRECTORS, OFFICERS, EMPLOYEES OR AGENTS BE LIABLE TO YOU OR ANY
+ OTHER PARTY FOR INDIRECT, CONSEQUENTIAL, SPECIAL, INCIDENTAL, PUNITIVE, OR EXEMPLARY DAMAGES OF ANY KIND (INCLUDING
+ LOST REVENUES OR PROFITS OR LOSS OF BUSINESS) RESULTING FROM THIS AGREEMENT, OR FROM THE FURNISHING, PERFORMANCE,
+ INSTALLATION, SUPPORT OR USE OF THE SOFTWARE PRODUCT, WHETHER DUE TO A BREACH OF CONTRACT, BREACH OF WARRANTY, OR THE
+ NEGLIGENCE OF FLEXRADIO SYSTEMS OR ANY OTHER PARTY, EVEN IF FLEXRADIO SYSTEMS IS ADVISED BEFOREHAND OF THE
+ POSSIBILITY OF SUCH DAMAGES. TO THE EXTENT THAT THE APPLICABLE JURISDICTION LIMITS FLEXRADIO SYSTEMS'S ABILITY TO
+ DISCLAIM ANY IMPLIED WARRANTIES, THIS DISCLAIMER SHALL BE EFFECTIVE TO THE MAXIMUM EXTENT PERMITTED.
+ .
+ Limitation of Remedies and Damages
+ Your remedy for a breach of this Agreement or of any warranty included in this Agreement is the correction or
+ replacement of the Software Product. Selection of whether to correct or replace shall be solely at the discretion of
+ FlexRadio Systems. FlexRadio Systems reserves the right to substitute a functionally equivalent copy of the Software
+ Product as a replacement. If FlexRadio Systems is unable to provide a replacement or substitute Software Product or
+ corrections to the Software Product, your sole alternate remedy shall be a refund of the purchase price for the
+ Software Product exclusive of any costs for shipping and handling.
+ .
+ Any claim must be made within the applicable warranty period. All warranties cover only defects arising under normal
+ use and do not include malfunctions or failure resulting from misuse, abuse, neglect, alteration, problems with
+ electrical power, acts of nature, unusual temperatures or humidity, improper installation, or damage determined by
+ FlexRadio Systems to have been caused by you. All limited warranties on the Software Product are granted only to you
+ and are non-transferable. You agree to indemnify and hold FlexRadio Systems harmless from all claims, judgments,
+ liabilities, expenses, or costs arising from your breach of this Agreement and/or acts or omissions.
+ .
+ Privacy: Password and User ID
+ Upon registration, the Software Product automatically communicates with the Company's servers on the internet. The
+ Company will use any personally identifiable information (e.g., name, callsign, etc.) only for the purposes specified
+ in its Privacy Policy, the terms of which are set forth below and incorporated herein by reference and, by your
+ acceptance of this EULA, to which you agree to be bound.
+ .
+ Privacy Policy
+ Your privacy is important to FlexRadio Systems, and we have implemented policies designed to protect your privacy,
+ whether you are accessing our Software via traditional computers (desktops, laptops) or via mobile devices (such as
+ smartphones and tablets) or via our client-enabled products (Maestro, FLEX-6400M, or FLEX-6600M). The following
+ explains our online information gathering practices and how that information is used by us.
+ .
+ Protection of Personal Information
+ We take appropriate precautions to protect any Personal Information that you submit to us.  FlexRadio Systems uses
+ industry standard measures to protect data that is stored on our SmartLink server and restricts access to such user
+ information to those who are responsible to operate and maintain the SmartLink server.
+ .
+ Data and Privacy
+ When you use the Software Product, we collect your IP address and network information for the purpose of facilitating
+ SmartLink connections.
+ .
+ We may from time to time disclose data to third parties in the following circumstances: (1) to conform to legal
+ requirements or to respond to a subpoena, search warrant or other legal process received by the Company seeking such
+ information, or (2) to enforce the terms of the End User License Agreement to which you are bound as a condition to
+ use of the Software or otherwise to protect our rights in the Software or the rights of other customers to enjoy the
+ benefits of the Software or (3) to our legal team or to a party that purchases Company or any of its businesses. We
+ do not furnish any Personal Information to any affiliated or unaffiliated third parties.
+ .
+ Financial
+ Payment for use of our Software is handled by recognized third party vendors. We do not collect or store any
+ personal banking or credit card information.
+ .
+ Governing Law, Jurisdiction and Costs
+ This Agreement is governed by the laws of Texas, without regard to Texas's conflict or choice of law provisions.
+ This Agreement shall not be governed by the United Nations Convention on Contracts for the International Sale of
+ Goods, the application of which is expressly excluded. Any civil action or legal proceeding arising out of or
+ relating to this Agreement shall be brought in the courts of record of the State of Texas in Travis County or the
+ United States District Court, Western District of Texas, Austin Division. You and FlexRadio Systems consent to the
+ jurisdiction of such court in any such civil action or legal proceeding and waive any objection to the laying of
+ venue of any such civil action or legal proceeding in such court.
+ .
+ Severability
+ If any provision of this Agreement shall be held to be invalid or unenforceable by a court of competent jurisdiction,
+ the remainder of this Agreement shall remain in full force and effect. To the extent any express or implied
+ restrictions are not permitted by applicable laws, these express or implied restrictions shall remain in force and
+ effect to the maximum extent permitted by such applicable laws.
+ .
+ Complete Agreement
+ This Agreement constitutes the entire agreement between you and FlexRadio Systems with respect to the use of the
+ Software Product licensed hereunder and supersedes all prior or contemporaneous understandings regarding such subject
+ matter. No amendment to or modification of this Agreement will be binding unless in writing and signed by FlexRadio
+ Systems. Any translation of this Agreement is done for local requirements and in the event of a dispute between the
+ English and any non-English versions, the English version of this Agreement shall govern.
