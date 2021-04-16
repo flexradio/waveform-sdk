@@ -17,7 +17,7 @@ RUN ln -sf /usr/share/zoneinfo/America/Los_Angeles /etc/localtime && \
     wget \
     ca-certificates \
     git \
-    python3-debian
+    doxygen
 
 RUN wget -O /tmp/cmake.sh https://github.com/Kitware/CMake/releases/download/v3.20.1/cmake-3.20.1-Linux-x86_64.sh && \
     sh /tmp/cmake.sh --skip-license --prefix=/usr && \

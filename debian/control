@@ -7,6 +7,11 @@ Build-Depends: debhelper (>= 11),
 Standards-Version: 4.4.1
 Homepage: http://www.flexradio.com
 
+Package: libwaveform-dev
+Architecture: any
+Depends: libwaveform (= ${binary:Version})
+Description: This package includes development files for compiling against libwaveform
+
 Package: libwaveform
 Architecture: any
 Multi-Arch: same
