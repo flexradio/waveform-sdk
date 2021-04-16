@@ -24,19 +24,11 @@ RUN wget -O /tmp/cmake.sh https://github.com/Kitware/CMake/releases/download/v3.
     rm /tmp/cmake.sh
 
 COPY debian/control /tmp/wfsdk-control
-COPY scripts/dpkg-deb-toolchain.py /tmp/dpkg-deb-toolchain.py
 
-COPY --from=flexradio/smoothlake-bamboo /opt/x-tools/rasfire/ /opt/x-tools/rasfire/
-RUN /tmp/dpkg-deb-toolchain.py --install /opt/x-tools/rasfire/aarch64-linux-gnu/sysroot --control /tmp/wfsdk-control
-COPY --from=flexradio/smoothlake-bamboo /opt/x-tools/dragonfire/ /opt/x-tools/dragonfire/
-RUN /tmp/dpkg-deb-toolchain.py --install /opt/x-tools/dragonfire/aarch64-linux-gnu/sysroot --control /tmp/wfsdk-control
-
-RUN mk-build-deps --host-arch=${ARCH} --build-arch=amd64 /tmp/wfsdk-control && \
-    dpkg-deb -x libwaveform-cross-build-deps_*_${ARCH}.deb /opt/x-tools/rasfire/aarch64-linux-gnu/sysroot && \
-    dpkg-deb -x libwaveform-cross-build-deps_*_${ARCH}.deb /opt/x-tools/dragonfire/aarch64-linux-gnu/sysroot && \
+RUN mk-build-deps --install --host-arch=${ARCH} --build-arch=amd64 \
+      --tool='apt-get -o Debug::pkgProblemResolver=yes --no-install-recommends --yes'  \
+      /tmp/wfsdk-control && \
     rm /tmp/wfsdk-control
-
-RUN rm /tmp/dpkg-deb-toolchain.py
 
 RUN useradd -c "Bamboo User" -m -u 999 -U bamboo
 USER bamboo:bamboo
