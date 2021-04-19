@@ -144,7 +144,7 @@ configure_file(cmake/LibWaveformConfig.cmake
         COPYONLY
         )
 
-set(ConfigPackageLocation lib/cmake/LibWaveform)
+set(ConfigPackageLocation lib/${CMAKE_LIBRARY_ARCHITECTURE}/cmake/LibWaveform)
 install(EXPORT LibWaveformTargets
         FILE
         LibWaveformTargets.cmake
