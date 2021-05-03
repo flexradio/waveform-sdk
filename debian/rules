@@ -6,6 +6,4 @@ override_dh_auto_configure:
 endif
 
 %:
-	echo "Build: ${DEB_BUILD_ARCH}"
-	echo "Host: ${DEB_HOST_ARCH}"
 	dh $@ --buildsystem=cmake

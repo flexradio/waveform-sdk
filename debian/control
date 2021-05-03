@@ -1,5 +1,5 @@
 Source: libwaveform
-Section: development
+Section: libs
 Priority: optional
 Maintainer: FlexRadio Systems Software Engineering <software@flex-radio.com>
 Build-Depends: debhelper (>= 11),
@@ -7,8 +7,19 @@ Build-Depends: debhelper (>= 11),
 Standards-Version: 4.4.1
 Homepage: http://www.flexradio.com
 
+Package: libwaveform-dev
+Architecture: any
+Multi-Arch: same
+Section: libdevel
+Depends: ${misc:Depends},
+         libwaveform (= ${binary:Version})
+Pre-Depends: ${misc:Pre-Depends}
+Description: This package includes development files for compiling against libwaveform
+
 Package: libwaveform
 Architecture: any
+Multi-Arch: same
 Depends: ${misc:Depends},
          ${shlibs:Depends}
+Pre-Depends: ${misc:Pre-Depends}
 Description: The FlexRadio Waveform SDK
