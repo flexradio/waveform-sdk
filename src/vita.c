@@ -49,6 +49,11 @@
 #include "waveform.h"
 
 // ****************************************
+// Project Includes
+// ****************************************
+static const uint16_t vita_port = 4991;
+
+// ****************************************
 // Structs, Enums, typedefs
 // ****************************************
 struct data_cb_wq_desc {
@@ -202,8 +207,7 @@ static void* vita_evt_loop(void* arg)
    struct sockaddr_in radio_addr = {
          .sin_family = AF_INET,
          .sin_addr.s_addr = wf->radio->addr.sin_addr.s_addr,
-         .sin_port = htons(4993)// XXX Magic here
-   };
+         .sin_port = htons(vita_port)};
 
    waveform_log(WF_LOG_DEBUG, "Initializing VITA-49 engine...\n");
 
