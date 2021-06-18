@@ -49,6 +49,11 @@
 #include "waveform.h"
 
 // ****************************************
+// Project Includes
+// ****************************************
+static const uint16_t vita_port = 4991;
+
+// ****************************************
 // Structs, Enums, typedefs
 // ****************************************
 struct data_cb_wq_desc {
@@ -67,6 +72,7 @@ static pthread_mutex_t wq_lock;
 static struct data_cb_wq_desc* wq = NULL;
 static _Atomic bool wq_running = false;
 static pthread_t wq_thread;
+static struct sockaddr_in radio_addr;
 
 // ****************************************
 // Static Functions
@@ -199,11 +205,14 @@ static void* vita_evt_loop(void* arg)
    };
    socklen_t bind_addr_len = sizeof(bind_addr);
 
-   struct sockaddr_in radio_addr = {
-         .sin_family = AF_INET,
-         .sin_addr.s_addr = wf->radio->addr.sin_addr.s_addr,
-         .sin_port = htons(4993)// XXX Magic here
-   };
+   // TODO: This needs to come back in when the radio does sane stuff with ports again
+   //   struct sockaddr_in radio_addr = {
+   //         .sin_family = AF_INET,
+   //         .sin_addr.s_addr = wf->radio->addr.sin_addr.s_addr,
+   //         .sin_port = htons(vita_port)};
+   radio_addr.sin_family = AF_INET;
+   radio_addr.sin_addr.s_addr = wf->radio->addr.sin_addr.s_addr;
+   radio_addr.sin_port = htons(vita_port);
 
    waveform_log(WF_LOG_DEBUG, "Initializing VITA-49 engine...\n");
 
@@ -220,11 +229,12 @@ static void* vita_evt_loop(void* arg)
       goto fail_socket;
    }
 
-   if (connect(vita->sock, (struct sockaddr*) &radio_addr, sizeof(struct sockaddr_in)) == -1)
-   {
-      waveform_log(WF_LOG_ERROR, "Couldn't connect socket: %s\n", strerror(errno));
-      goto fail_socket;
-   }
+   // TODO: This needs to come back in when the radio does sane stuff with ports again
+   //   if (connect(vita->sock, (struct sockaddr*) &radio_addr, sizeof(struct sockaddr_in)) == -1)
+   //   {
+   //      waveform_log(WF_LOG_ERROR, "Couldn't connect socket: %s\n", strerror(errno));
+   //      goto fail_socket;
+   //   }
 
    if (getsockname(vita->sock, (struct sockaddr*) &bind_addr, &bind_addr_len) == -1)
    {
@@ -430,7 +440,8 @@ ssize_t vita_send_packet(struct vita* vita, struct waveform_vita_packet* packet)
    size_t len = vita_prep_packet(packet);
 
    ssize_t bytes_sent;
-   if ((bytes_sent = send(vita->sock, packet, len, 0)) == -1)
+   //   if ((bytes_sent = send(vita->sock, packet, len, 0)) == -1)
+   if ((bytes_sent = sendto(vita->sock, packet, len, 0, &radio_addr, sizeof(radio_addr))) == -1)
    {
       waveform_log(WF_LOG_ERROR, "Error sending vita packet: %d\n", errno);
       return -errno;
