@@ -451,7 +451,7 @@ ssize_t vita_send_packet(struct vita* vita, struct waveform_vita_packet* packet)
 
    ssize_t bytes_sent;
    //   if ((bytes_sent = send(vita->sock, packet, len, 0)) == -1)
-   if ((bytes_sent = sendto(vita->sock, packet, len, 0, &radio_addr, sizeof(radio_addr))) == -1)
+   if ((bytes_sent = sendto(vita->sock, packet, len, 0, (const struct sockaddr*) &radio_addr, sizeof(radio_addr))) == -1)
    {
       waveform_log(WF_LOG_ERROR, "Error sending vita packet: %d\n", errno);
       return -errno;
