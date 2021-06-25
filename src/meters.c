@@ -195,7 +195,8 @@ int waveform_meter_set_int_value(struct waveform_t* wf, char* name, short value)
 {
    struct waveform_meter* meter;
 
-   if ((meter = find_meter_by_name(wf, name)) == NULL) {
+   if ((meter = find_meter_by_name(wf, name)) == NULL)
+   {
       waveform_log(WF_LOG_ERROR, "Meter not found: %s\n", name);
       return -1;
    }
