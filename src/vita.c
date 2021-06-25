@@ -119,14 +119,7 @@ static void vita_read_cb(evutil_socket_t socket, short what, void* ctx)
       return;
    }
 
-   // Byte swap the whole packet because we're going to pass it to the user, and we'll assume they want
-   // host byte order, otherwise it's potentially confusing.
-   // Hopefully the compiler will vector optimize this, because there should be NEON instructions for 4-wide
-   // byte swap.  If it doesn't, we should do it ourselves.
-   for (uint32_t* word = (uint32_t*) &packet; word < (uint32_t*) (&packet + 1); ++word)
-   {
-      *word = ntohl(*word);
-   }
+   vita_swap_data(&packet.header);
 
    swap_frac_timestamp((uint32_t*) &(packet.header.timestamp_frac));
 
@@ -142,22 +135,39 @@ static void vita_read_cb(evutil_socket_t socket, short what, void* ctx)
    struct waveform_t* cur_wf = container_of(vita, struct waveform_t, vita);
 
    struct waveform_cb_list* cb_list;
-   if (packet.header.class_id == AUDIO_CLASS_ID)
+   switch (packet.header.class_id)
    {
-      if (is_transmit_packet(&packet))
-      {
-         cb_list = cur_wf->tx_data_cbs;
-         vita->tx_stream_id = packet.header.stream_id;
-      }
-      else
-      {
-         cb_list = cur_wf->rx_data_cbs;
-         vita->rx_stream_id = packet.header.stream_id;
-      }
-   }
-   else
-   {
-      cb_list = cur_wf->unk_data_cbs;
+      case AUDIO_CLASS_ID:
+         vita_swap_data(&packet.raw_payload);
+         if (is_transmit_packet(&packet))
+         {
+            cb_list = cur_wf->tx_data_cbs;
+            vita->tx_stream_id = packet.header.stream_id;
+         }
+         else
+         {
+            cb_list = cur_wf->rx_data_cbs;
+            vita->rx_stream_id = packet.header.stream_id;
+         }
+         break;
+      case DATA_CLASS_ID:
+         // We don't swap the data around here so that we are transparent
+         // to the user who is sending it.
+         if (is_transmit_packet(&packet))
+         {
+            cb_list = cur_wf->tx_byte_data_cbs;
+            vita->rx_bytes_stream_id = packet.header.stream_id;
+         }
+         else
+         {
+            cb_list = cur_wf->rx_byte_data_cbs;
+            vita->tx_stream_id = packet.header.stream_id;
+         }
+         break;
+      default:
+         vita_swap_data(&packet.raw_payload);
+         cb_list = cur_wf->unknown_data_cbs;
+         break;
    }
 
    struct waveform_cb_list* cur_cb;
@@ -503,6 +513,16 @@ inline uint16_t get_packet_len(struct waveform_vita_packet* packet)
 inline float* get_packet_data(struct waveform_vita_packet* packet)
 {
    return packet->if_samples;
+}
+
+inline void* get_packet_byte_data(struct waveform_vita_packet* packet)
+{
+   return packet->byte_payload.data;
+}
+
+inline uint32_t get_packet_byte_data_length(struct waveform_vita_packet* packet)
+{
+   return htonl(packet->byte_payload.length);
 }
 
 inline uint32_t get_packet_ts_int(struct waveform_vita_packet* packet)

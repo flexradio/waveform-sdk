@@ -44,9 +44,24 @@
 #define METER_STREAM_ID 0x88000000u
 #define METER_CLASS_ID ((0x534c8002LLU << 32u) | FLEX_OUI)
 #define AUDIO_CLASS_ID ((0x534c03e3LLU << 32u) | FLEX_OUI)
+#define DATA_CLASS_ID ((0x534c0100LLU << 32u) | FLEX_OUI)
 
 #define VITA_PACKET_HEADER_SIZE(packet) \
    (sizeof((packet)->header))
+
+/// @brief Swap byte order of a data structure word by word
+/// @details The VITA-49 specification specifies that the byte order of the
+///          words in the packet is big endian.  This means we must swap
+///          each word for major portions of the packet.  This function will
+///          do that swap for an arbitrary chunk of data.
+/// @param data A pointer to the data to be byte swapped.
+inline static void vita_swap_data(void* data)
+{
+   for (uint32_t* word = (uint32_t*) data; word < (uint32_t*) (data + 1); ++word)
+   {
+      *word = ntohl(*word);
+   }
+}
 
 // ****************************************
 // Structs, Enums, typedefs
@@ -69,6 +84,10 @@ struct waveform_vita_packet {
    {
       uint8_t raw_payload[1440];
       float if_samples[360];
+      struct {
+         uint32_t length;
+         uint8_t data[1436];
+      } byte_payload;
    };
 };
 
@@ -106,6 +125,8 @@ struct vita {
    _Atomic uint8_t data_sequence;
    uint32_t tx_stream_id;
    uint32_t rx_stream_id;
+   uint32_t tx_bytes_stream_id;
+   uint32_t rx_bytes_stream_id;
 };
 #pragma clang diagnostic pop
 
