@@ -45,25 +45,26 @@
 #define METER_CLASS_ID ((0x534c8002LLU << 32u) | FLEX_OUI)
 #define AUDIO_CLASS_ID ((0x534c03e3LLU << 32u) | FLEX_OUI)
 
-#define VITA_PACKET_HEADER_SIZE_FOR_TYPE(type) \
-   (sizeof(struct type) -                      \
-    sizeof(((struct type) {0}).raw_payload))
-
 #define VITA_PACKET_HEADER_SIZE(packet) \
-   (((packet)->timestamp_type & 0xf0u) != 0 ? VITA_PACKET_HEADER_SIZE_FOR_TYPE(waveform_vita_packet) : VITA_PACKET_HEADER_SIZE_FOR_TYPE(waveform_vita_packet_sans_ts))
+   (sizeof((packet)->header))
 
 // ****************************************
 // Structs, Enums, typedefs
 // ****************************************
+#pragma clang diagnostic push
+#pragma ide diagnostic ignored "altera-struct-pack-align"
 #pragma pack(push, 1)
 struct waveform_vita_packet {
-   uint16_t length;
-   uint8_t timestamp_type;
-   uint8_t packet_type;
-   uint32_t stream_id;
-   uint64_t class_id;
-   uint32_t timestamp_int;
-   uint64_t timestamp_frac;
+   struct
+   {
+      uint16_t length;
+      uint8_t timestamp_type;
+      uint8_t packet_type;
+      uint32_t stream_id;
+      uint64_t class_id;
+      uint32_t timestamp_int;
+      uint64_t timestamp_frac;
+   } header;
    union
    {
       uint8_t raw_payload[1440];
@@ -72,11 +73,14 @@ struct waveform_vita_packet {
 };
 
 struct waveform_vita_packet_sans_ts {
-   uint16_t length;
-   uint8_t timestamp_type;
-   uint8_t packet_type;
-   uint32_t stream_id;
-   uint64_t class_id;
+   struct
+   {
+      uint16_t length;
+      uint8_t timestamp_type;
+      uint8_t packet_type;
+      uint32_t stream_id;
+      uint64_t class_id;
+   } header;
    union
    {
       uint8_t raw_payload[1452];
@@ -103,6 +107,7 @@ struct vita {
    uint32_t tx_stream_id;
    uint32_t rx_stream_id;
 };
+#pragma clang diagnostic pop
 
 // ****************************************
 // Global Functions
