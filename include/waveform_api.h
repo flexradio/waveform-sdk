@@ -68,7 +68,9 @@ enum waveform_state
 enum waveform_packet_type
 {
    SPEAKER_DATA,
-   TRANSMITTER_DATA
+   TRANSMITTER_DATA,
+   RAW_DATA_TX,
+   RAW_DATA_RX
 };
 
 /// @brief The levels for log messages.  Higher is more severe.
@@ -386,6 +388,17 @@ int waveform_radio_start(struct radio_t* radio);
 ssize_t waveform_send_data_packet(struct waveform_t* waveform, float* samples,
                                   size_t num_samples,
                                   enum waveform_packet_type type);
+
+/// @brief Sends a raw byte data packet to the radio
+/// @details
+/// @param waveform The waveform sending the data
+/// @param data A reference to an array of bytes to send
+/// @param data_size The number of bytes in the samples array
+/// @param type The type of data packet to send, either RAW_DATA_TX to send the samples to the radio transmitter, or RAW_DATA_RX
+///        to send it to the radio's serial port.
+/// @returns 0 on success or a negative value on an error.  Return values are negative values of errno.h and will return
+///          -E2BIG on a short write to the network.
+ssize_t waveform_send_raw_data_packet(struct waveform_t* waveform, void* data, size_t data_size, enum waveform_packet_type type);
 
 /// @brief Gets the length of a received packet
 /// @details Returns the length of the data in a packet received from the radio.

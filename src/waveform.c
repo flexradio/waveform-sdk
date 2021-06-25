@@ -251,6 +251,11 @@ inline ssize_t waveform_send_data_packet(struct waveform_t* waveform,
    vita_send_data_packet(&waveform->vita, samples, num_samples, type);
 }
 
+inline ssize_t waveform_send_raw_data_packet(struct waveform_t* waveform, void* data, size_t data_size, enum waveform_packet_type type)
+{
+   vita_send_raw_data_packet(&waveform->vita, data, data_size, type);
+}
+
 void waveform_set_context(struct waveform_t* wf, void* ctx)
 {
    wf->ctx = ctx;

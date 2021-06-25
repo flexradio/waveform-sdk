@@ -162,6 +162,17 @@ ssize_t vita_send_packet(struct vita* vita, struct waveform_vita_packet* packet)
 ///          -E2BIG on a short write to the network.
 ssize_t vita_send_data_packet(struct vita* vita, float* samples, size_t num_samples, enum waveform_packet_type type);
 
+/// @brief Sends a raw byte data packet to the radio
+/// @details
+/// @param vita The VITA loop to which to send the packet
+/// @param data A reference to an array of bytes to send
+/// @param data_size The number of bytes in the samples array
+/// @param type The type of data packet to send, either RAW_DATA_TX to send the samples to the radio transmitter, or RAW_DATA_RX
+///        to send it to the radio's serial port.
+/// @returns 0 on success or a negative value on an error.  Return values are negative values of errno.h and will return
+///          -E2BIG on a short write to the network.
+ssize_t vita_send_raw_data_packet(struct vita* vita, void* data, size_t data_size, enum waveform_packet_type type);
+
 /// @brief Stops a VITA processing loop and releases all of its resources
 /// @details When you are done using a VITA loop use this function to clean up resources.  Usage would be, for example, when the
 ///          waveform becomes inactive because the user has selected another mode.

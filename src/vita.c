@@ -502,6 +502,47 @@ ssize_t vita_send_data_packet(struct vita* vita, float* samples, size_t num_samp
    return vita_send_packet(vita, packet);
 }
 
+ssize_t vita_send_raw_data_packet(struct vita* vita, void* data, size_t data_size, enum waveform_packet_type type)
+{
+   if (data_size > MEMBER_SIZE(struct waveform_vita_packet, byte_payload.data))
+   {
+      waveform_log(WF_LOG_ERROR, "%lu bytes exceeds maximum sending limit of %lu byt4es\n", data_size,
+                   MEMBER_SIZE(struct waveform_vita_packet, byte_payload.data));
+      return -EFBIG;
+   }
+
+   //  We go ahead and allocate a queue entry here because we don't want to copy it unnecessarily if we have to queue it in
+   //  vita_send_packet.  The overhead here is really only the size of a pointer, which isn't very big.
+   struct waveform_vita_packet* packet = calloc(1, sizeof(*packet));
+
+   packet->header.packet_type = VITA_PACKET_TYPE_IF_DATA_WITH_STREAM_ID;
+   packet->header.class_id = AUDIO_CLASS_ID;
+   packet->header.length = data_size / sizeof(uint32_t);// Length is in 32-bit words
+   if (data_size % sizeof(uint32_t) > 0)
+   {
+      ++packet->header.length;
+   }
+
+   packet->header.timestamp_type = 0x50U | (vita->data_sequence++ & 0x0fu);
+
+   switch (type)
+   {
+      case RAW_DATA_TX:
+         packet->header.stream_id = vita->tx_bytes_stream_id;
+         break;
+      case RAW_DATA_RX:
+         packet->header.stream_id = vita->rx_bytes_stream_id;
+         break;
+      default:
+         waveform_log(WF_LOG_INFO, "Invalid packet type!\n");
+         break;
+   }
+
+   packet->byte_payload.length = htonl(data_size);
+   memcpy(packet->byte_payload.data, data, data_size);
+   return vita_send_packet(vita, packet);
+}
+
 // ****************************************
 // Public API Functions
 // ****************************************
