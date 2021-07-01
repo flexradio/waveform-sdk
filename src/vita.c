@@ -96,7 +96,7 @@ inline static bool is_transmit_packet(struct waveform_vita_packet* packet)
 
 /// @brief Libevent callback for when a VITA packet is read from the UDP socket.
 /// @details When a packet is recieved from the network, libevent calls this callback to let us know.  In here we do all of
-///          our initial packet processing and sanity checks and bit flipping before calling the appropriate user callback
+///          our initial packet processing and sanity checks and endian flipping before calling the appropriate user callback
 ///          function.
 /// @param socket The socket upon which the VITA packet was received
 /// @param what The event type that occurred
