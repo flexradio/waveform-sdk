@@ -556,7 +556,7 @@ inline float* get_packet_data(struct waveform_vita_packet* packet)
    return packet->if_samples;
 }
 
-inline void* get_packet_byte_data(struct waveform_vita_packet* packet)
+inline uint8_t* get_packet_byte_data(struct waveform_vita_packet* packet)
 {
    return packet->byte_payload.data;
 }
