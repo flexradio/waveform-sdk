@@ -483,7 +483,7 @@ ssize_t vita_send_data_packet(struct vita* vita, float* samples, size_t num_samp
    packet->header.class_id = AUDIO_CLASS_ID;
    packet->header.length = num_samples;// Length is in 32-bit words
 
-   packet->header.timestamp_type = 0x50U | (vita->data_sequence++ & 0x0fu);
+   packet->header.timestamp_type = INTEGER_TIMESTAMP_UTC | FRACTIONAL_TIMESTAMP_SAMPLE_COUNT | (vita->data_sequence++ & 0x0fu);
 
    switch (type)
    {
@@ -523,7 +523,7 @@ ssize_t vita_send_raw_data_packet(struct vita* vita, void* data, size_t data_siz
       ++packet->header.length;
    }
 
-   packet->header.timestamp_type = 0x50U | (vita->data_sequence++ & 0x0fu);
+   packet->header.timestamp_type = INTEGER_TIMESTAMP_UTC | FRACTIONAL_TIMESTAMP_SAMPLE_COUNT | (vita->data_sequence++ & 0x0fu);
 
    switch (type)
    {

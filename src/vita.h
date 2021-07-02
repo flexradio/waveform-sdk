@@ -49,8 +49,22 @@
 #define VITA_PACKET_HEADER_SIZE(packet) \
    (sizeof((packet)->header))
 
+
+// Integer timestamp constants
+static const uint8_t INTEGER_TIMESTAMP_NOT_PRESENT = 0x00;
+static const uint8_t INTEGER_TIMESTAMP_UTC = 0x10;
+static const uint8_t INTEGER_TIMESTAMP_GPS = 0x20;
+static const uint8_t INTEGER_TIMESTAMP_OTHER = 0x30;
+
+// Fractional timestamp constants
+static const uint8_t FRACTIONAL_TIMESTAMP_NOT_PRESENT = 0x00;
+static const uint8_t FRACTIONAL_TIMESTAMP_SAMPLE_COUNT = 0x01;
+static const uint8_t FRACTIONAL_TIMESTAMP_REAL_TIME = 0x02;
+static const uint8_t FRACTIONAL_TIMESTAMP_FREE_RUNNING_COUNT = 0x03;
+
 /// @brief Swap byte order of a data structure word by word
 /// @details The VITA-49 specification specifies that the byte order of the
+
 ///          words in the packet is big endian.  This means we must swap
 ///          each word for major portions of the packet.  This function will
 ///          do that swap for an arbitrary chunk of data.
