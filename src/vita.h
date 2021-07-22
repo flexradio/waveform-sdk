@@ -44,39 +44,76 @@
 #define METER_STREAM_ID 0x88000000u
 #define METER_CLASS_ID ((0x534c8002LLU << 32u) | FLEX_OUI)
 #define AUDIO_CLASS_ID ((0x534c03e3LLU << 32u) | FLEX_OUI)
-
-#define VITA_PACKET_HEADER_SIZE_FOR_TYPE(type) \
-   (sizeof(struct type) -                      \
-    sizeof(((struct type) {0}).raw_payload))
+#define DATA_CLASS_ID ((0x534c0100LLU << 32u) | FLEX_OUI)
 
 #define VITA_PACKET_HEADER_SIZE(packet) \
-   (((packet)->timestamp_type & 0xf0u) != 0 ? VITA_PACKET_HEADER_SIZE_FOR_TYPE(waveform_vita_packet) : VITA_PACKET_HEADER_SIZE_FOR_TYPE(waveform_vita_packet_sans_ts))
+   (sizeof((packet)->header))
+
+
+// Integer timestamp constants
+static const uint8_t INTEGER_TIMESTAMP_NOT_PRESENT = 0x00;
+static const uint8_t INTEGER_TIMESTAMP_UTC = 0x10;
+static const uint8_t INTEGER_TIMESTAMP_GPS = 0x20;
+static const uint8_t INTEGER_TIMESTAMP_OTHER = 0x30;
+
+// Fractional timestamp constants
+static const uint8_t FRACTIONAL_TIMESTAMP_NOT_PRESENT = 0x00;
+static const uint8_t FRACTIONAL_TIMESTAMP_SAMPLE_COUNT = 0x01;
+static const uint8_t FRACTIONAL_TIMESTAMP_REAL_TIME = 0x02;
+static const uint8_t FRACTIONAL_TIMESTAMP_FREE_RUNNING_COUNT = 0x03;
+
+/// @brief Swap byte order of a data structure word by word
+/// @details The VITA-49 specification specifies that the byte order of the
+
+///          words in the packet is big endian.  This means we must swap
+///          each word for major portions of the packet.  This function will
+///          do that swap for an arbitrary chunk of data.
+/// @param data A pointer to the data to be byte swapped.
+inline static void vita_swap_data(void* data)
+{
+   for (uint32_t* word = (uint32_t*) data; word < (uint32_t*) (data + 1); ++word)
+   {
+      *word = ntohl(*word);
+   }
+}
 
 // ****************************************
 // Structs, Enums, typedefs
 // ****************************************
+#pragma clang diagnostic push
+#pragma ide diagnostic ignored "altera-struct-pack-align"
 #pragma pack(push, 1)
 struct waveform_vita_packet {
-   uint16_t length;
-   uint8_t timestamp_type;
-   uint8_t packet_type;
-   uint32_t stream_id;
-   uint64_t class_id;
-   uint32_t timestamp_int;
-   uint64_t timestamp_frac;
+   struct
+   {
+      uint16_t length;
+      uint8_t timestamp_type;
+      uint8_t packet_type;
+      uint32_t stream_id;
+      uint64_t class_id;
+      uint32_t timestamp_int;
+      uint64_t timestamp_frac;
+   } header;
    union
    {
       uint8_t raw_payload[1440];
       float if_samples[360];
+      struct {
+         uint32_t length;
+         uint8_t data[1436];
+      } byte_payload;
    };
 };
 
 struct waveform_vita_packet_sans_ts {
-   uint16_t length;
-   uint8_t timestamp_type;
-   uint8_t packet_type;
-   uint32_t stream_id;
-   uint64_t class_id;
+   struct
+   {
+      uint16_t length;
+      uint8_t timestamp_type;
+      uint8_t packet_type;
+      uint32_t stream_id;
+      uint64_t class_id;
+   } header;
    union
    {
       uint8_t raw_payload[1452];
@@ -102,7 +139,10 @@ struct vita {
    _Atomic uint8_t data_sequence;
    uint32_t tx_stream_id;
    uint32_t rx_stream_id;
+   uint32_t tx_bytes_stream_id;
+   uint32_t rx_bytes_stream_id;
 };
+#pragma clang diagnostic pop
 
 // ****************************************
 // Global Functions
@@ -135,6 +175,17 @@ ssize_t vita_send_packet(struct vita* vita, struct waveform_vita_packet* packet)
 /// @returns 0 on success or a negative value on an error.  Return values are negative values of errno.h and will return
 ///          -E2BIG on a short write to the network.
 ssize_t vita_send_data_packet(struct vita* vita, float* samples, size_t num_samples, enum waveform_packet_type type);
+
+/// @brief Sends a raw byte data packet to the radio
+/// @details
+/// @param vita The VITA loop to which to send the packet
+/// @param data A reference to an array of bytes to send
+/// @param data_size The number of bytes in the samples array
+/// @param type The type of data packet to send, either RAW_DATA_TX to send the samples to the radio transmitter, or RAW_DATA_RX
+///        to send it to the radio's serial port.
+/// @returns 0 on success or a negative value on an error.  Return values are negative values of errno.h and will return
+///          -E2BIG on a short write to the network.
+ssize_t vita_send_raw_data_packet(struct vita* vita, void* data, size_t data_size, enum waveform_packet_type type);
 
 /// @brief Stops a VITA processing loop and releases all of its resources
 /// @details When you are done using a VITA loop use this function to clean up resources.  Usage would be, for example, when the

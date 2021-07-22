@@ -89,21 +89,21 @@ static void discovery_cb(evutil_socket_t sock, short what, void* ctx)
       *word = ntohl(*word);
    }
 
-   if (packet.class_id != DISCOVERY_CLASS_ID)
+   if (packet.header.class_id != DISCOVERY_CLASS_ID)
    {
-      waveform_log(WF_LOG_INFO, "Received packet with invalid ID: 0x%lX\n", packet.class_id);
+      waveform_log(WF_LOG_INFO, "Received packet with invalid ID: 0x%lX\n", packet.header.class_id);
       return;
    }
 
-   if (packet.packet_type != VITA_PACKET_TYPE_EXT_DATA_WITH_STREAM_ID)
+   if (packet.header.packet_type != VITA_PACKET_TYPE_EXT_DATA_WITH_STREAM_ID)
    {
-      waveform_log(WF_LOG_INFO, "Received packet is not correct type: 0x%x\n", packet.packet_type);
+      waveform_log(WF_LOG_INFO, "Received packet is not correct type: 0x%x\n", packet.header.packet_type);
       return;
    }
 
-   if (packet.stream_id != DISCOVERY_STREAM_ID)
+   if (packet.header.stream_id != DISCOVERY_STREAM_ID)
    {
-      waveform_log(WF_LOG_INFO, "Received packet does not have correct stream id: 0x%x\n", packet.stream_id);
+      waveform_log(WF_LOG_INFO, "Received packet does not have correct stream id: 0x%x\n", packet.header.stream_id);
       return;
    }
 

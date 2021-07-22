@@ -68,7 +68,9 @@ enum waveform_state
 enum waveform_packet_type
 {
    SPEAKER_DATA,
-   TRANSMITTER_DATA
+   TRANSMITTER_DATA,
+   RAW_DATA_TX,
+   RAW_DATA_RX
 };
 
 /// @brief The levels for log messages.  Higher is more severe.
@@ -202,6 +204,24 @@ int waveform_register_rx_data_cb(struct waveform_t* waveform,
 /// @param arg A user-defined argument to be passed to the callback on execution.  Can be NULL.
 /// @return 0 upon success, -1 on failure
 int waveform_register_unknown_data_cb(struct waveform_t* waveform, waveform_data_cb_t cb, void* arg);
+
+/// @brief Register a raw byte receive data packet callback for a waveform.
+/// @details Registers a callback that is called when there is a raw byte receive packet from the radio.  This could
+///          be receive data inbound from the Rapid M module or other data producing process.
+/// @param waveform Pointer to the waveform structure returned by waveform_create()
+/// @param cb The callback function
+/// @param arg A user-defined argument to be passed to the callback on execution.  Can be NULL.
+/// @return 0 upon success, -1 on failure
+int waveform_register_tx_byte_data_cb(struct waveform_t* waveform, waveform_data_cb_t cb, void* arg);
+
+/// @brief Register a raw byte transmit data packet callback for a waveform.
+/// @details Registers a callback that is called when there is a raw byte transmit VITA-49 packet from the radio.  This could
+///          be transmit data inbound from the radio's serial port or other data producing proces.
+/// @param waveform Pointer to the waveform structure returned by waveform_create()
+/// @param cb The callback function
+/// @param arg A user-defined argument to be passed to the callback on execution.  Can be NULL.
+/// @return 0 upon success, -1 on failure
+int waveform_register_rx_byte_data_cb(struct waveform_t* waveform, waveform_data_cb_t cb, void* arg);
 
 /// @brief Register a status callback.
 /// @details Registers a callback is called when the radio status changes.  This function also handles creating the
@@ -369,6 +389,17 @@ ssize_t waveform_send_data_packet(struct waveform_t* waveform, float* samples,
                                   size_t num_samples,
                                   enum waveform_packet_type type);
 
+/// @brief Sends a raw byte data packet to the radio
+/// @details
+/// @param waveform The waveform sending the data
+/// @param data A reference to an array of bytes to send
+/// @param data_size The number of bytes in the samples array
+/// @param type The type of data packet to send, either RAW_DATA_TX to send the samples to the radio transmitter, or RAW_DATA_RX
+///        to send it to the radio's serial port.
+/// @returns 0 on success or a negative value on an error.  Return values are negative values of errno.h and will return
+///          -E2BIG on a short write to the network.
+ssize_t waveform_send_raw_data_packet(struct waveform_t* waveform, uint8_t* data, size_t data_size, enum waveform_packet_type type);
+
 /// @brief Gets the length of a received packet
 /// @details Returns the length of the data in a packet received from the radio.
 /// @param packet A packet returned from the radio in the waveform_data_cb_t callback.
@@ -460,5 +491,21 @@ struct sockaddr_in* waveform_discover_radio(const struct timeval* timeout);
 ///          to stdout.  See the above enum for relative levels of the logs.
 /// @param level The level of the logging desired
 void waveform_set_log_level(enum waveform_log_levels level);
+
+/// @brief Get the data portion of a raw byte data packet
+/// @details For a raw data packet returned from the waveform_register_rx_bytes_data_cb or waveform_register_tx_bytes_data_cb
+///          registered callbacks, gets the raw data from the radio.  The length of this data can be obtained with the
+///          get_packet_byte_data_length() call.
+/// @param packet A packet returned from the radio in the waveform_data_cb_t callback.
+/// @returns An array of bytes received in the radio packet
+uint8_t* get_packet_byte_data(struct waveform_vita_packet* packet);
+
+/// @brief Get the length of the raw byte data of a packet
+/// @details For a raw data packet returned from the waveform_register_rx_bytes_data_cb or waveform_register_tx_bytes_data_cb
+///          registered callbacks, gets the length of the raw data from the radio.  The data can be obtained with the
+///          get_packet_byte_data() call.
+/// @param A packet returned from the radio in the waveform_data_cb_t callback.
+/// @returns An unsigned integer representing the number of bytes in the array returned by get_packet_byte_data()
+uint32_t get_packet_byte_data_length(struct waveform_vita_packet* packet);
 
 #endif//WAVEFORM_SDK_WAVEFORM_H

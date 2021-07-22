@@ -195,7 +195,8 @@ int waveform_meter_set_int_value(struct waveform_t* wf, char* name, short value)
 {
    struct waveform_meter* meter;
 
-   if ((meter = find_meter_by_name(wf, name)) == NULL) {
+   if ((meter = find_meter_by_name(wf, name)) == NULL)
+   {
       waveform_log(WF_LOG_ERROR, "Meter not found: %s\n", name);
       return -1;
    }
@@ -231,11 +232,11 @@ ssize_t waveform_meters_send(struct waveform_t* wf)
    int i = 0;
    struct waveform_vita_packet_sans_ts* packet = calloc(1, sizeof(*packet));
 
-   packet->packet_type = VITA_PACKET_TYPE_EXT_DATA_WITH_STREAM_ID;
-   packet->stream_id = METER_STREAM_ID;
-   packet->class_id = METER_CLASS_ID;
+   packet->header.packet_type = VITA_PACKET_TYPE_EXT_DATA_WITH_STREAM_ID;
+   packet->header.stream_id = METER_STREAM_ID;
+   packet->header.class_id = METER_CLASS_ID;
 
-   packet->timestamp_type = wf->vita.meter_sequence++ & 0x0fu;
+   packet->header.timestamp_type = wf->vita.meter_sequence++ & 0x0fu;
 
    LL_FOREACH(wf->meter_head, meter)
    {
@@ -255,7 +256,7 @@ ssize_t waveform_meters_send(struct waveform_t* wf)
       }
    }
 
-   packet->length = i;
+   packet->header.length = i;
 
    return vita_send_packet(&wf->vita, (struct waveform_vita_packet*) packet);
 }

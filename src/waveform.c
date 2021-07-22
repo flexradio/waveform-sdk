@@ -143,7 +143,7 @@ void waveform_destroy(struct waveform_t* waveform)
    free_cb_list(waveform->cmd_cbs);
    free_cb_list(waveform->rx_data_cbs);
    free_cb_list(waveform->tx_data_cbs);
-   free_cb_list(waveform->unk_data_cbs);
+   free_cb_list(waveform->unknown_data_cbs);
 
    free(waveform->name);
    free(waveform->short_name);
@@ -232,29 +232,28 @@ inline int waveform_register_command_cb(struct waveform_t* waveform,
    return waveform_register_cb(&waveform->cmd_cbs, command_name, cb, arg);
 }
 
-inline int waveform_register_rx_data_cb(struct waveform_t* waveform,
-                                        waveform_data_cb_t cb, void* arg)
-{
-   return waveform_register_cb(&waveform->rx_data_cbs, NULL, (waveform_cmd_cb_t) cb, arg);
-}
+#define REGISTER_DATA_CB(name)                                                                           \
+   int waveform_register_##name##_data_cb(struct waveform_t* waveform, waveform_data_cb_t cb, void* arg) \
+   {                                                                                                     \
+      return waveform_register_cb(&waveform->name##_data_cbs, NULL, (waveform_cmd_cb_t) cb, arg);        \
+   }
 
-inline int waveform_register_tx_data_cb(struct waveform_t* waveform,
-                                        waveform_data_cb_t cb, void* arg)
-{
-   return waveform_register_cb(&waveform->tx_data_cbs, NULL, (waveform_cmd_cb_t) cb, arg);
-}
-
-inline int waveform_register_unknown_data_cb(struct waveform_t* waveform,
-                                             waveform_data_cb_t cb, void* arg)
-{
-   return waveform_register_cb(&waveform->unk_data_cbs, NULL, (waveform_cmd_cb_t) cb, arg);
-}
+REGISTER_DATA_CB(rx)
+REGISTER_DATA_CB(tx)
+REGISTER_DATA_CB(tx_byte)
+REGISTER_DATA_CB(rx_byte)
+REGISTER_DATA_CB(unknown)
 
 inline ssize_t waveform_send_data_packet(struct waveform_t* waveform,
                                          float* samples, size_t num_samples,
                                          enum waveform_packet_type type)
 {
    vita_send_data_packet(&waveform->vita, samples, num_samples, type);
+}
+
+inline ssize_t waveform_send_raw_data_packet(struct waveform_t* waveform, uint8_t* data, size_t data_size, enum waveform_packet_type type)
+{
+   vita_send_raw_data_packet(&waveform->vita, data, data_size, type);
 }
 
 void waveform_set_context(struct waveform_t* wf, void* ctx)
