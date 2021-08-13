@@ -22,9 +22,13 @@
 // System Includes
 // ****************************************
 #include <arpa/inet.h>
+#include <getopt.h>
+#include <libgen.h>
+#include <netdb.h>
 #include <netinet/in.h>
 #include <pthread.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 // ****************************************
@@ -202,24 +206,89 @@ static void state_test(struct waveform_t* waveform, enum waveform_state state,
    }
 }
 
+static void usage(const char* progname)
+{
+   fprintf(stderr, "Usage: %s [options]\n\n", progname);
+   fprintf(stderr, "Options:\n");
+   fprintf(stderr, "  -h <hostname>, --host=<hostname>  Hostname or IP of the radio [default: perform discovery]\n");
+}
+
+static const struct option example_options[] = {
+      {
+            .name = "host",
+            .has_arg = required_argument,
+            .flag = NULL,
+            .val = 'h'//  This keeps the value the same as the short value -h
+      },
+      {0}// Sentinel
+};
+
 // ****************************************
 // Global Functions
 // ****************************************
 int main(int argc, char** argv)
 {
-   struct sockaddr_in* addr;
+   struct sockaddr_in* addr = NULL;
 
    struct junk_context ctx = {0};
 
-   struct timeval timeout = {
-         .tv_sec = 10,
-         .tv_usec = 0};
-   addr = waveform_discover_radio(&timeout);
+   while (1)
+   {
+      int indexptr;
+      int option = getopt_long(argc, argv, "h:", example_options, &indexptr);
 
+      if (option == -1)// We're done with options
+         break;
+
+      switch (option)
+      {
+         case 'h': {
+            struct addrinfo* addrlist;
+            int ret = getaddrinfo(optarg, "4992", NULL, &addrlist);
+            if (ret != 0)
+            {
+               fprintf(stderr, "Host lookup for %s failed: %s\n", optarg, gai_strerror(ret));
+               exit(1);
+            }
+
+            addr = malloc(sizeof(*addr));
+            memcpy(addr, addrlist[0].ai_addr, sizeof(*addr));
+
+            freeaddrinfo(addrlist);
+            break;
+         }
+         default:
+            usage(basename(argv[0]));
+            exit(1);
+            break;
+      }
+   }
+
+   if (optind < argc)
+   {
+      fprintf(stderr, "Non option elements detected:");
+      for (size_t i = optind; i < argc; ++i)
+      {
+         fprintf(stderr, " %s", argv[i]);
+      }
+      fprintf(stderr, "\n");
+      usage(basename(argv[0]));
+      exit(1);
+   }
+
+   //  If we didn't get an address on the command line, perform discovery for it.
    if (addr == NULL)
    {
-      fprintf(stderr, "No radio found");
-      return 0;
+      const struct timeval timeout = {
+            .tv_sec = 10,
+            .tv_usec = 0};
+
+      addr = waveform_discover_radio(&timeout);
+      if (addr == NULL)
+      {
+         fprintf(stderr, "No radio found");
+         return 0;
+      };
    }
 
    fprintf(stderr, "Connecting to radio at %s:%u\n", inet_ntoa(addr->sin_addr), ntohs(addr->sin_port));
