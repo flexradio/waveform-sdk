@@ -233,7 +233,7 @@ ssize_t waveform_meters_send(struct waveform_t* wf)
                .stream_id = METER_STREAM_ID,
                .integer_timestamp_type = INTEGER_TIMESTAMP_NOT_PRESENT,
                .fractional_timestamp_type = FRACTIONAL_TIMESTAMP_NOT_PRESENT,
-               .sequence = wf->vita.meter_sequence++ & 0x0fu,
+               .sequence = wf->vita.meter_sequence++,
                .information_class = __constant_cpu_to_be16(SMOOTHLAKE_INFORMATION_CLASS),
                .packet_class_byte = __constant_cpu_to_be16(METER_PACKET_CLASS),
          }};
