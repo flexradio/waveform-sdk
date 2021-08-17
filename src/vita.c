@@ -396,13 +396,33 @@ static void vita_read_cb(evutil_socket_t socket, short what, void* ctx)
       vita_swap_payload(&packet);
       if (is_transmit_packet(&packet))
       {
+         if (vita->tx_stream_in_id == 0)
+         {
+            waveform_log(WF_LOG_DEBUG, "No Incoming TX Stream ID, setting to 0x%08x\n", packet.header.stream_id);
+            vita->tx_stream_in_id = packet.header.stream_id;
+         }
+         else if (vita->tx_stream_in_id != packet.header.stream_id)
+         {
+            waveform_log(WF_LOG_INFO, "Incoming TX stream 0x%08x is not expected (0x%08x)\n", packet.header.stream_id, vita->tx_stream_in_id);
+            return;
+         }
+
          cb_list = cur_wf->tx_data_cbs;
-         vita->tx_stream_id = packet.header.stream_id;
       }
       else
       {
+         if (vita->rx_stream_in_id == 0)
+         {
+            waveform_log(WF_LOG_DEBUG, "No Incoming RX Stream ID, setting to 0x%08x\n", packet.header.stream_id);
+            vita->rx_stream_in_id = packet.header.stream_id;
+         }
+         else if (vita->rx_stream_in_id != packet.header.stream_id)
+         {
+            waveform_log(WF_LOG_INFO, "Incoming RX stream 0x%08x is not expected (0x%08x)\n", packet.header.stream_id, vita->tx_stream_in_id);
+            return;
+         }
+
          cb_list = cur_wf->rx_data_cbs;
-         vita->rx_stream_id = packet.header.stream_id;
       }
    }
    else if (packet.header.packet_type == VITA_PACKET_TYPE_IF_DATA_WITH_STREAM_ID &&
@@ -416,16 +436,7 @@ static void vita_read_cb(evutil_socket_t socket, short what, void* ctx)
       // We don't swap the data around here so that we are transparent
       // to the user who is sending it.
       packet.byte_payload.length = ntohl(packet.byte_payload.length);
-      if (is_transmit_packet(&packet))
-      {
-         cb_list = cur_wf->tx_byte_data_cbs;
-         vita->rx_bytes_stream_id = packet.header.stream_id;
-      }
-      else
-      {
-         cb_list = cur_wf->rx_byte_data_cbs;
-         vita->tx_stream_id = packet.header.stream_id;
-      }
+      cb_list = is_transmit_packet(&packet) ? cb_list = cur_wf->tx_byte_data_cbs : cur_wf->rx_byte_data_cbs;
    }
    else
    {
@@ -732,7 +743,7 @@ ssize_t vita_send_data_packet(struct vita* vita, float* samples, size_t num_samp
                .length = num_samples,
                .timestamp_int = htonl(current_time.tv_sec),
                .timestamp_frac = htobe64(current_time.tv_nsec * 1000),
-               .stream_id = htonl(type == TRANSMITTER_DATA ? vita->tx_stream_id : vita->rx_stream_id),
+               .stream_id = htonl(type == TRANSMITTER_DATA ? vita->tx_stream_in_id : vita->rx_stream_in_id),
                .oui = __constant_cpu_to_be32(FLEX_OUI),
                .information_class = __constant_cpu_to_be16(SMOOTHLAKE_INFORMATION_CLASS),
                .packet_class = {
@@ -779,7 +790,7 @@ ssize_t vita_send_raw_data_packet(struct vita* vita, void* data, size_t data_siz
                .length = DIV_ROUND_UP(data_size, sizeof(uint32_t)),
                .timestamp_int = htonl(current_time.tv_sec),
                .timestamp_frac = htobe64(current_time.tv_nsec * 1000),
-               .stream_id = type == htonl(TRANSMITTER_DATA ? vita->tx_bytes_stream_id : vita->rx_bytes_stream_id),
+               .stream_id = type == htonl(TRANSMITTER_DATA ? vita->byte_stream_in_id : vita->byte_stream_out_id),
                .oui = __constant_cpu_to_be32(FLEX_OUI),
                .information_class = __constant_cpu_to_be16(SMOOTHLAKE_INFORMATION_CLASS),
                .packet_class = {

@@ -301,10 +301,12 @@ struct vita {
    struct event* read_evt;
    _Atomic uint8_t meter_sequence;
    _Atomic uint8_t data_sequence;
-   uint32_t tx_stream_id;
-   uint32_t rx_stream_id;
-   uint32_t tx_bytes_stream_id;
-   uint32_t rx_bytes_stream_id;
+   uint32_t tx_stream_in_id;
+   uint32_t rx_stream_in_id;
+   uint32_t tx_stream_out_id;
+   uint32_t rx_stream_out_id;
+   uint32_t byte_stream_in_id;
+   uint32_t byte_stream_out_id;
 };
 #pragma clang diagnostic pop
 

@@ -722,6 +722,81 @@ static void radio_process_line(struct radio_t* radio, sds line)
    sdsfreesplitres(tokens, count);
 }
 
+static void radio_set_waveform_streams(struct waveform_t* waveform, unsigned int code, char* message, void* arg)
+{
+   sds tx_stream_in_id;
+   sds rx_stream_in_id;
+   sds tx_stream_out_id;
+   sds rx_stream_out_id;
+   int argc;
+
+   if (code != 0)
+   {
+      waveform_log(WF_LOG_ERROR, "Couldn't register waveform: %s (%d)\n", message, code);
+      return;
+   }
+
+   sds* argv = sdssplitargs(message, &argc);
+
+   if (false == find_kwarg_as_int(argc, argv, "tx_stream_in_id", &waveform->vita.tx_stream_in_id))
+   {
+      waveform_log(WF_LOG_ERROR, "Cannot find Incoming TX stream ID\n");
+   }
+   else
+   {
+      waveform_log(WF_LOG_DEBUG, "Found Incoming TX stream ID: 0x%08x\n", waveform->vita.tx_stream_in_id);
+   }
+
+   if (false == find_kwarg_as_int(argc, argv, "rx_stream_in_id", &waveform->vita.rx_stream_in_id))
+   {
+      waveform_log(WF_LOG_ERROR, "Cannot find Incoming RX stream ID\n");
+   }
+   else
+   {
+      waveform_log(WF_LOG_DEBUG, "Found Incoming RX stream ID: 0x%08x\n", waveform->vita.rx_stream_in_id);
+   }
+
+   //  TODO: These two streams come to us via the waveform command, but we can't send to them
+   //        successfully: tx_stream_out_id, rx_stream_out_id.
+   if (false == find_kwarg_as_int(argc, argv, "tx_stream_out_id", &waveform->vita.tx_stream_out_id))
+   {
+      waveform_log(WF_LOG_ERROR, "Cannot find Outgoing TX stream ID\n");
+   }
+   else
+   {
+      waveform_log(WF_LOG_DEBUG, "Found Outgoing TX stream ID: 0x%08x\n", waveform->vita.tx_stream_out_id);
+   }
+
+   if (false == find_kwarg_as_int(argc, argv, "rx_stream_out_id", &waveform->vita.rx_stream_out_id))
+   {
+      waveform_log(WF_LOG_ERROR, "Cannot find Outgoing RX stream ID\n");
+   }
+   else
+   {
+      waveform_log(WF_LOG_DEBUG, "Found Outgoing RX stream ID: 0x%08x\n", waveform->vita.rx_stream_out_id);
+   }
+
+   if (false == find_kwarg_as_int(argc, argv, "byte_stream_in_id", &waveform->vita.byte_stream_in_id))
+   {
+      waveform_log(WF_LOG_ERROR, "Cannot find Incoming Byte stream ID\n");
+   }
+   else
+   {
+      waveform_log(WF_LOG_DEBUG, "Found Incoming Byte stream ID: 0x%08x\n", waveform->vita.byte_stream_in_id);
+   }
+
+   if (false == find_kwarg_as_int(argc, argv, "byte_stream_out_id", &waveform->vita.byte_stream_out_id))
+   {
+      waveform_log(WF_LOG_ERROR, "Cannot find Outgoing Byte stream ID\n");
+   }
+   else
+   {
+      waveform_log(WF_LOG_DEBUG, "Found Outgoing Byte stream ID: 0x%08x\n", waveform->vita.byte_stream_out_id);
+   }
+
+   sdsfreesplitres(argv, argc);
+}
+
 /// @brief Initialize radio after connection established
 /// @details Once we connect the API socket to the radio we need to execute certain functions to prepare for running the waveform.
 ///          These include registering the waveforms and modes that we handle, properly registering any meters, setting filter widths, etc.
@@ -740,7 +815,7 @@ static void radio_init(struct radio_t* radio)
       }
 
       waveform_send_api_command_cb(
-            cur_wf, NULL, NULL,
+            cur_wf, radio_set_waveform_streams, NULL,
             "waveform create name=%s mode=%s underlying_mode=%s version=%s",
             cur_wf->name, cur_wf->short_name,
             cur_wf->underlying_mode, cur_wf->version);

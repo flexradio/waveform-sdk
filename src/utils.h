@@ -25,6 +25,7 @@
 // Third Party Library Includes
 // ****************************************
 #include <sds.h>
+#include <stdbool.h>
 
 // ****************************************
 // Project Includes
@@ -75,5 +76,15 @@ short float_to_fixed(double input, unsigned char fractional_bits);
 /// @param key The key of the keyword argument you wish to extract
 /// @returns A string value of the value of the argument with the given keyword or NULL on failure to find an element with that keyword.
 sds find_kwarg(int argc, sds* argv, sds key);
+
+/// @brief Find a "Keyword" argument in a set of parsed arguments and return the value as a integer
+/// @details A keyword argument is in the format "keyword=value".  These are very common structures in the API, so we provide functionality to
+///          parse them easily.  Given the key and set of arguments, we'll return the value as an integer.
+/// @param argc The number of arguments passed in
+/// @param argv A reference to an array of string arguments to parse
+/// @param key The key of the keyword argument you wish to extract
+/// @param value an pointer to the integer in which to store the value
+/// @returns true on success or false on failure.  Leaves '0' as the value if there is a failure
+bool find_kwarg_as_int(int argc, sds* argv, sds key, uint32_t* value);
 
 #endif// UTILS_H_
