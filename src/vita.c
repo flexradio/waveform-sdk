@@ -627,38 +627,6 @@ static void* vita_cb_loop(void* arg __attribute__((unused)))
 }
 #pragma clang diagnostic pop
 
-/// @brief Prepare a vita packet for processing
-/// @details Fills in various calculated fields in the packet to ready it for
-///          transmission.  This includes calculating th epacket size, setting
-///          the timestamp and resolving the byte order.
-/// @param packet The packet to prepare
-/// @returns The length of the packet to be sent.
-static size_t vita_prep_packet(struct waveform_vita_packet* packet)
-{
-   size_t packet_len;
-
-   if ((packet->header.timestamp_type & 0x50u) != 0)
-   {
-      packet->header.timestamp_int = time(NULL);
-      packet->header.timestamp_frac = 0;
-   }
-
-   packet_len = VITA_PACKET_HEADER_SIZE(packet) + (packet->header.length * sizeof(float));
-   packet->header.length += (VITA_PACKET_HEADER_SIZE(packet) / 4);
-   assert(packet_len % 4 == 0);
-
-   // Hopefully the compiler will vector optimize this, because there should be NEON instructions for 4-wide
-   // byte swap.  If it doesn't, we should do it ourselves.
-   for (uint32_t* word = (uint32_t*) packet; word < (uint32_t*) (packet + 1); ++word)
-   {
-      *word = htonl(*word);
-   }
-
-   swap_frac_timestamp((uint32_t*) &(packet->header.timestamp_frac));
-
-   return packet_len;
-}
-
 // ****************************************
 // Global Functions
 // ****************************************
