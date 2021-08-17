@@ -94,6 +94,17 @@ inline static bool is_transmit_packet(struct waveform_vita_packet* packet)
    return false;
 }
 
+/// @brief Byte swaps the payload of a VITA-49 packet
+/// @param packet The packet whose payload to swap
+inline static void vita_swap_payload(struct waveform_vita_packet* packet)
+{
+   size_t payload_len = packet->header.length - (VITA_PACKET_HEADER_SIZE(packet) / sizeof(uint32_t));
+   for (size_t i = 0; i < payload_len; ++i)
+   {
+      packet->word_payload[i] = ntohl(packet->word_payload[i]);
+   }
+}
+
 /// @brief Libevent callback for when a VITA packet is read from the UDP socket.
 /// @details When a packet is recieved from the network, libevent calls this callback to let us know.  In here we do all of
 ///          our initial packet processing and sanity checks and endian flipping before calling the appropriate user callback
@@ -119,9 +130,22 @@ static void vita_read_cb(evutil_socket_t socket, short what, void* ctx)
       return;
    }
 
-   vita_swap_data(&packet.header);
+   //  Swap appropriate header fields.  We swap the static values for comparison for the class IDs,
+   //  so we don't need to worry about swapping that.
+   packet.header.length = ntohs(packet.header.length);
+   packet.header.stream_id = ntohl(packet.header.stream_id);
 
-   swap_frac_timestamp((uint32_t*) &(packet.header.timestamp_frac));
+   if (packet.header.integer_timestamp_type != INTEGER_TIMESTAMP_NOT_PRESENT)
+   {
+      packet.header.timestamp_int = htonl(packet.header.timestamp_int);
+      packet.header.timestamp_frac = be64toh(packet.header.timestamp_frac);
+   }
+
+   if (packet.header.oui != __constant_cpu_to_be32(FLEX_OUI))
+   {
+      waveform_log(WF_LOG_INFO, "Invalid OUI: 0x%08x\n", ntohl(packet.header.oui));
+      return;
+   }
 
    unsigned long payload_length = (packet.header.length * sizeof(uint32_t)) - VITA_PACKET_HEADER_SIZE(&packet);
 
@@ -132,42 +156,62 @@ static void vita_read_cb(evutil_socket_t socket, short what, void* ctx)
       return;
    }
 
-   struct waveform_t* cur_wf = container_of(vita, struct waveform_t, vita);
-
-   struct waveform_cb_list* cb_list;
-   switch (packet.header.class_id)
+   if (packet.header.information_class != __constant_be16_to_cpu(SMOOTHLAKE_INFORMATION_CLASS))
    {
-      case AUDIO_CLASS_ID:
-         vita_swap_data(&packet.raw_payload);
-         if (is_transmit_packet(&packet))
-         {
-            cb_list = cur_wf->tx_data_cbs;
-            vita->tx_stream_id = packet.header.stream_id;
-         }
-         else
-         {
-            cb_list = cur_wf->rx_data_cbs;
-            vita->rx_stream_id = packet.header.stream_id;
-         }
-         break;
-      case DATA_CLASS_ID:
-         // We don't swap the data around here so that we are transparent
-         // to the user who is sending it.
-         if (is_transmit_packet(&packet))
-         {
-            cb_list = cur_wf->tx_byte_data_cbs;
-            vita->rx_bytes_stream_id = packet.header.stream_id;
-         }
-         else
-         {
-            cb_list = cur_wf->rx_byte_data_cbs;
-            vita->tx_stream_id = packet.header.stream_id;
-         }
-         break;
-      default:
-         vita_swap_data(&packet.raw_payload);
-         cb_list = cur_wf->unknown_data_cbs;
-         break;
+      waveform_log(WF_LOG_INFO, "Invalid packet information class: 0x%04x\n", ntohs(packet.header.information_class));
+      return;
+   }
+
+   struct waveform_t* cur_wf = container_of(vita, struct waveform_t, vita);
+   struct waveform_cb_list* cb_list;
+
+   if (packet.header.packet_type == VITA_PACKET_TYPE_IF_DATA_WITH_STREAM_ID &&
+       packet.header.packet_class.is_audio &&
+       packet.header.packet_class.bits_per_sample == BPS_32 &&
+       packet.header.packet_class.sample_rate == SR_24K &&
+       packet.header.packet_class.frames_per_sample == FPS_2 &&
+       packet.header.packet_class.is_float)
+   {
+      //  This is an audio packet from the RX or Mic
+      vita_swap_payload(&packet);
+      if (is_transmit_packet(&packet))
+      {
+         cb_list = cur_wf->tx_data_cbs;
+         vita->tx_stream_id = packet.header.stream_id;
+      }
+      else
+      {
+         cb_list = cur_wf->rx_data_cbs;
+         vita->rx_stream_id = packet.header.stream_id;
+      }
+   }
+   else if (packet.header.packet_type == VITA_PACKET_TYPE_IF_DATA_WITH_STREAM_ID &&
+            packet.header.packet_class.is_audio &&
+            packet.header.packet_class.bits_per_sample == BPS_8 &&
+            packet.header.packet_class.sample_rate == SR_3K &&
+            packet.header.packet_class.frames_per_sample == FPS_1 &&
+            packet.header.packet_class.is_float)
+   {
+      // This is a byte data packet.
+      // We don't swap the data around here so that we are transparent
+      // to the user who is sending it.
+      packet.byte_payload.length = ntohl(packet.byte_payload.length);
+      if (is_transmit_packet(&packet))
+      {
+         cb_list = cur_wf->tx_byte_data_cbs;
+         vita->rx_bytes_stream_id = packet.header.stream_id;
+      }
+      else
+      {
+         cb_list = cur_wf->rx_byte_data_cbs;
+         vita->tx_stream_id = packet.header.stream_id;
+      }
+   }
+   else
+   {
+      // This is an unknown format packet
+      vita_swap_payload(&packet);
+      cb_list = cur_wf->unknown_data_cbs;
    }
 
    struct waveform_cb_list* cur_cb;
@@ -447,13 +491,18 @@ void vita_destroy(struct waveform_t* wf)
 
 ssize_t vita_send_packet(struct vita* vita, struct waveform_vita_packet* packet)
 {
-   size_t len = vita_prep_packet(packet);
+   packet->header.length += VITA_PACKET_HEADER_SIZE(packet) / sizeof(uint32_t);
+   size_t len = packet->header.length * sizeof(uint32_t);
+   packet->header.length = htons(packet->header.length);
+
+   waveform_log(WF_LOG_DEBUG, "Transmitting Packet of length %ld bytes:\n", len);
 
    ssize_t bytes_sent;
-   //   if ((bytes_sent = send(vita->sock, packet, len, 0)) == -1)
-   if ((bytes_sent = sendto(vita->sock, packet, len, 0, (const struct sockaddr*) &radio_addr, sizeof(radio_addr))) == -1)
+   if ((bytes_sent = sendto(vita->sock, packet, len, 0, (const struct sockaddr*) &radio_addr, sizeof(struct sockaddr_in))) == -1)
    {
-      waveform_log(WF_LOG_ERROR, "Error sending vita packet: %d\n", errno);
+      char error_string[1024];
+      strerror_r(errno, error_string, sizeof(error_string));
+      waveform_log(WF_LOG_ERROR, "Error sending vita packet to %s: %s\n", inet_ntoa(radio_addr.sin_addr), error_string);
       return -errno;
    }
 
@@ -475,31 +524,42 @@ ssize_t vita_send_data_packet(struct vita* vita, float* samples, size_t num_samp
       return -EFBIG;
    }
 
-   //  We go ahead and allocate a queue entry here because we don't want to copy it unnecessarily if we have to queue it in
-   //  vita_send_packet.  The overhead here is really only the size of a pointer, which isn't very big.
-   struct waveform_vita_packet* packet = calloc(1, sizeof(*packet));
-
-   packet->header.packet_type = VITA_PACKET_TYPE_IF_DATA_WITH_STREAM_ID;
-   packet->header.class_id = AUDIO_CLASS_ID;
-   packet->header.length = num_samples;// Length is in 32-bit words
-
-   packet->header.timestamp_type = INTEGER_TIMESTAMP_UTC | FRACTIONAL_TIMESTAMP_SAMPLE_COUNT | (vita->data_sequence++ & 0x0fu);
-
-   switch (type)
+   struct timespec current_time = {0};
+   if (clock_gettime(CLOCK_REALTIME, &current_time) == -1)
    {
-      case TRANSMITTER_DATA:
-         packet->header.stream_id = vita->tx_stream_id;
-         break;
-      case SPEAKER_DATA:
-         packet->header.stream_id = vita->rx_stream_id;
-         break;
-      default:
-         waveform_log(WF_LOG_INFO, "Invalid packet type!\n");
-         break;
+      waveform_log(WF_LOG_INFO, "Couldn't get current time: %m\n");
+      current_time.tv_sec = 0;
+      current_time.tv_nsec = 0;
    }
 
-   memcpy(packet->raw_payload, samples, num_samples * sizeof(float));
-   return vita_send_packet(vita, packet);
+   struct waveform_vita_packet packet = {
+         .header = {
+               .packet_type = VITA_PACKET_TYPE_IF_DATA_WITH_STREAM_ID,
+               .class_present = true,
+               .trailer_present = false,
+               .integer_timestamp_type = INTEGER_TIMESTAMP_UTC,
+               .fractional_timestamp_type = FRACTIONAL_TIMESTAMP_REAL_TIME,
+               .sequence = vita->data_sequence++,
+               .length = num_samples,
+               .timestamp_int = htonl(current_time.tv_sec),
+               .timestamp_frac = htobe64(current_time.tv_nsec * 1000),
+               .stream_id = htonl(type == TRANSMITTER_DATA ? vita->tx_stream_id : vita->rx_stream_id),
+               .oui = __constant_cpu_to_be32(FLEX_OUI),
+               .information_class = __constant_cpu_to_be16(SMOOTHLAKE_INFORMATION_CLASS),
+               .packet_class = {
+                     .is_audio = true,
+                     .is_float = true,
+                     .sample_rate = SR_24K,
+                     .bits_per_sample = BPS_32,
+                     .frames_per_sample = FPS_2}},
+         .raw_payload = {0}};
+
+   for (size_t i = 0; i < num_samples; ++i)
+   {
+      packet.word_payload[i] = htonl(((uint32_t*) samples)[i]);
+   }
+
+   return vita_send_packet(vita, &packet);
 }
 
 ssize_t vita_send_raw_data_packet(struct vita* vita, void* data, size_t data_size, enum waveform_packet_type type)
@@ -511,36 +571,38 @@ ssize_t vita_send_raw_data_packet(struct vita* vita, void* data, size_t data_siz
       return -EFBIG;
    }
 
-   //  We go ahead and allocate a queue entry here because we don't want to copy it unnecessarily if we have to queue it in
-   //  vita_send_packet.  The overhead here is really only the size of a pointer, which isn't very big.
-   struct waveform_vita_packet* packet = calloc(1, sizeof(*packet));
-
-   packet->header.packet_type = VITA_PACKET_TYPE_IF_DATA_WITH_STREAM_ID;
-   packet->header.class_id = AUDIO_CLASS_ID;
-   packet->header.length = data_size / sizeof(uint32_t);// Length is in 32-bit words
-   if (data_size % sizeof(uint32_t) > 0)
+   struct timespec current_time = {0};
+   if (clock_gettime(CLOCK_REALTIME, &current_time) == -1)
    {
-      ++packet->header.length;
+      waveform_log(WF_LOG_INFO, "Couldn't get current time: %m\n");
+      current_time.tv_sec = 0;
+      current_time.tv_nsec = 0;
    }
 
-   packet->header.timestamp_type = INTEGER_TIMESTAMP_UTC | FRACTIONAL_TIMESTAMP_SAMPLE_COUNT | (vita->data_sequence++ & 0x0fu);
+   struct waveform_vita_packet packet = {
+         .header = {
+               .packet_type = VITA_PACKET_TYPE_IF_DATA_WITH_STREAM_ID,
+               .class_present = true,
+               .trailer_present = false,
+               .integer_timestamp_type = INTEGER_TIMESTAMP_UTC,
+               .fractional_timestamp_type = FRACTIONAL_TIMESTAMP_REAL_TIME,
+               .sequence = vita->data_sequence++,
+               .length = DIV_ROUND_UP(data_size, sizeof(uint32_t)),
+               .timestamp_int = htonl(current_time.tv_sec),
+               .timestamp_frac = htobe64(current_time.tv_nsec * 1000),
+               .stream_id = type == htonl(TRANSMITTER_DATA ? vita->tx_bytes_stream_id : vita->rx_bytes_stream_id),
+               .oui = __constant_cpu_to_be32(FLEX_OUI),
+               .information_class = __constant_cpu_to_be16(SMOOTHLAKE_INFORMATION_CLASS),
+               .packet_class = {
+                     .is_audio = true,
+                     .is_float = false,
+                     .sample_rate = SR_3K,
+                     .bits_per_sample = BPS_8,
+                     .frames_per_sample = FPS_1}},
+         .byte_payload = {.length = htonl(data_size), .data = {0}}};
 
-   switch (type)
-   {
-      case RAW_DATA_TX:
-         packet->header.stream_id = vita->tx_bytes_stream_id;
-         break;
-      case RAW_DATA_RX:
-         packet->header.stream_id = vita->rx_bytes_stream_id;
-         break;
-      default:
-         waveform_log(WF_LOG_INFO, "Invalid packet type!\n");
-         break;
-   }
-
-   packet->byte_payload.length = htonl(data_size);
-   memcpy(packet->byte_payload.data, data, data_size);
-   return vita_send_packet(vita, packet);
+   memcpy(packet.byte_payload.data, data, data_size);
+   return vita_send_packet(vita, &packet);
 }
 
 // ****************************************
@@ -563,7 +625,7 @@ inline uint8_t* get_packet_byte_data(struct waveform_vita_packet* packet)
 
 inline uint32_t get_packet_byte_data_length(struct waveform_vita_packet* packet)
 {
-   return htonl(packet->byte_payload.length);
+   return packet->byte_payload.length;
 }
 
 inline uint32_t get_packet_ts_int(struct waveform_vita_packet* packet)
@@ -590,10 +652,10 @@ inline uint32_t get_stream_id(struct waveform_vita_packet* packet)
 
 inline uint64_t get_class_id(struct waveform_vita_packet* packet)
 {
-   return packet->header.class_id;
+   return (packet->header.information_class << 16) & packet->header.packet_class_byte;
 }
 
 inline uint8_t get_packet_count(struct waveform_vita_packet* packet)
 {
-   return packet->header.timestamp_type & 0x0fu;
+   return packet->header.sequence;
 }
