@@ -77,6 +77,226 @@ static struct sockaddr_in radio_addr;
 // ****************************************
 // Static Functions
 // ****************************************
+/// @brief Converts a integer timestamp type to a string representation
+/// @param ts Timestamp type
+/// @returns a static string describing the timestamp type
+static inline const char* integer_timestamp_type_to_string(enum integer_timestamp_type ts)
+{
+   switch (ts)
+   {
+      case INTEGER_TIMESTAMP_NOT_PRESENT:
+         return "Not Present";
+      case INTEGER_TIMESTAMP_UTC:
+         return "UTC";
+      case INTEGER_TIMESTAMP_GPS:
+         return "GPS";
+      case INTEGER_TIMESTAMP_OTHER:
+         return "Other";
+      default:
+         return "Invalid Value";
+   }
+}
+
+/// @brief Converts a fractional timestamp type to a string representation
+/// @param ts Timestamp type
+/// @returns a static string describing the timestamp type
+static inline const char* fractional_timestamp_type_to_string(enum fractional_timestamp_type ts)
+{
+   switch (ts)
+   {
+      case FRACTIONAL_TIMESTAMP_NOT_PRESENT:
+         return "Not Present";
+      case FRACTIONAL_TIMESTAMP_SAMPLE_COUNT:
+         return "Sample Count";
+      case FRACTIONAL_TIMESTAMP_FREE_RUNNING_COUNT:
+         return "Free Running Count";
+      case FRACTIONAL_TIMESTAMP_REAL_TIME:
+         return "Real Time";
+      default:
+         return "Invalid Value";
+   }
+}
+
+/// @brief Converts a packet type to a string representation
+/// @param type VITA-49 packet type
+/// @returns a static string describing the packet type
+static inline const char* vita_packet_type_to_string(enum vita_packet_type type)
+{
+   switch (type)
+   {
+      case VITA_PACKET_TYPE_IF_DATA_WITHOUT_STREAM_ID:
+         return "IF Data Without Stream ID";
+      case VITA_PACKET_TYPE_IF_DATA_WITH_STREAM_ID:
+         return "IF Data With Stream ID";
+      case VITA_PACKET_TYPE_EXT_DATA_WITHOUT_STREAM_ID:
+         return "Extension Data Without Stream ID";
+      case VITA_PACKET_TYPE_EXT_DATA_WITH_STREAM_ID:
+         return "Extension Data With Stream ID";
+      case VITA_PACKET_TYPE_CTX:
+         return "Context";
+      case VITA_PACKET_TYPE_EXT_CTX:
+         return "Extension Context";
+      case VITA_PACKET_TYPE_CMD:
+         return "Command";
+      case VITA_PACKET_TYPE_EXT_CMD:
+         return "Extension Command";
+      default:
+         return "Invalid";
+   }
+}
+
+/// @brief converts a sample rate type to a string representation
+/// @param sr The sample rate
+/// @returns a static string describing the sample rate
+static inline const char* sample_rate_to_string(enum sample_rate sr)
+{
+   switch (sr)
+   {
+      case SR_3K:
+         return "3 ksps";
+      case SR_6K:
+         return "6 ksps";
+      case SR_12K:
+         return "12 ksps";
+      case SR_24K:
+         return "24 ksps";
+      case SR_48K:
+         return "48 ksps";
+      case SR_96K:
+         return "96 ksps";
+      case SR_192K:
+         return "192 ksps";
+      case SR_384K:
+         return "384 ksps";
+      case SR_768K:
+         return "768 ksps";
+      case SR_1568K:
+         return "1.568 Msps";
+      case SR_3072K:
+         return "3.072 Msps";
+      case SR_6144K:
+         return "6.144 Msps";
+      case SR_12288K:
+         return "12.288 Msps";
+      case SR_24576K:
+         return "24.576 Msps";
+      case SR_49152K:
+         return "49.152 Msps";
+      case SR_98304K:
+         return "98.304 Msps";
+      case SR_4K:
+         return "4 ksps";
+      case SR_8K:
+         return "8 ksps";
+      case SR_16K:
+         return "16 ksps";
+      case SR_32K:
+         return "32 ksps";
+      case SR_64K:
+         return "64 ksps";
+      case SR_128K:
+         return "128 ksps";
+      case SR_256K:
+         return "256 ksps";
+      case SR_512K:
+         return "512 ksps";
+      case SR_1024K:
+         return "1.024 Msps";
+      case SR_2048K:
+         return "2.048 Msps";
+      case SR_4096K:
+         return "4.096 Msps";
+      case SR_8192K:
+         return "8.192 Msps";
+      case SR_16384K:
+         return "16.384 Msps";
+      case SR_32768K:
+         return "32.768 Msps";
+      case SR_65536K:
+         return "65.536 Msps";
+      case SR_131072K:
+         return "131.072 Msps";
+      default:
+         return "Invalid";
+   }
+}
+
+/// @brief converts a bits per sample type to a string representation
+/// @param sr The bits per sample
+/// @returns a static string describing the bits per sample
+inline static const char* bits_per_sample_to_string(enum bits_per_sample bps)
+{
+   switch (bps)
+   {
+      case BPS_8:
+         return "8";
+      case BPS_16:
+         return "16";
+      case BPS_24:
+         return "24";
+      case BPS_32:
+         return "32";
+      default:
+         return "Invalid";
+   }
+}
+
+/// @brief converts a frames per sample type to a string representation
+/// @param sr The frames per sample
+/// @returns a static string describing the frames per sample
+inline static const char* frames_per_sample_to_string(enum frames_per_sample fps)
+{
+   switch (fps)
+   {
+      case FPS_1:
+         return "1";
+      case FPS_2:
+         return "2";
+      default:
+         return "Invalid";
+   }
+}
+
+/// @brief Dumps the header of a VITA-49 packet in a human readable format
+/// @details For debugging purposes
+/// @param packet the packet to dump
+static void dump_packet_header(struct waveform_vita_packet* packet)
+{
+   waveform_log(WF_LOG_DEBUG, "Length: %d\n", htons(packet->header.length));
+   waveform_log(WF_LOG_DEBUG, "Sequence: %d\n", packet->header.sequence);
+   waveform_log(WF_LOG_DEBUG, "Fractional Timestamp Type: %s\n", fractional_timestamp_type_to_string(packet->header.fractional_timestamp_type));
+   waveform_log(WF_LOG_DEBUG, "Integer Timestamp Type: %s\n", integer_timestamp_type_to_string(packet->header.integer_timestamp_type));
+   waveform_log(WF_LOG_DEBUG, "Trailer Present: %s\n", packet->header.trailer_present == true ? "Yes" : "No");
+   waveform_log(WF_LOG_DEBUG, "Class Present: %s\n", packet->header.class_present == true ? "Yes" : "No");
+   waveform_log(WF_LOG_DEBUG, "Packet Type: %s\n", vita_packet_type_to_string(packet->header.packet_type));
+   if (packet->header.packet_type == VITA_PACKET_TYPE_EXT_DATA_WITH_STREAM_ID ||
+       packet->header.packet_type == VITA_PACKET_TYPE_IF_DATA_WITH_STREAM_ID)
+   {
+      waveform_log(WF_LOG_DEBUG, "Stream ID: 0x%08x\n", ntohl(packet->header.stream_id));
+   }
+
+   if (packet->header.class_present)
+   {
+      waveform_log(WF_LOG_DEBUG, "Packet Class: 0x%04x (%d)\n", ntohs(packet->header.packet_class_byte), ntohs(packet->header.packet_class_byte));
+      waveform_log(WF_LOG_DEBUG, "  Sample Rate: %s\n", sample_rate_to_string(packet->header.packet_class.sample_rate));
+      waveform_log(WF_LOG_DEBUG, "  Bits per Sample: %s\n", bits_per_sample_to_string(packet->header.packet_class.bits_per_sample));
+      waveform_log(WF_LOG_DEBUG, "  Frames per Sample: %s\n", frames_per_sample_to_string(packet->header.packet_class.frames_per_sample));
+      waveform_log(WF_LOG_DEBUG, "  Sample Source: %s\n", packet->header.packet_class.is_audio ? "Audio" : "RF");
+      waveform_log(WF_LOG_DEBUG, "  Sample Format: %s\n", packet->header.packet_class.is_float ? "IEEE-754 Floating Point" : "Two's Compliment");
+      waveform_log(WF_LOG_DEBUG, "Information Class: 0x%04x (%d)\n", ntohs(packet->header.information_class), ntohs(packet->header.information_class))
+            waveform_log(WF_LOG_DEBUG, "OUI: 0x%06x\n", ntohl(packet->header.oui));
+   }
+
+   if (packet->header.integer_timestamp_type != INTEGER_TIMESTAMP_NOT_PRESENT)
+   {
+      waveform_log(WF_LOG_DEBUG, "Integer Timestamp: %u\n", ntohl(packet->header.timestamp_int));
+   }
+   if (packet->header.fractional_timestamp_type != FRACTIONAL_TIMESTAMP_NOT_PRESENT)
+   {
+      waveform_log(WF_LOG_DEBUG, "Fractional Timestamp: %lu\n", be64toh(packet->header.timestamp_frac));
+   }
+   waveform_log(WF_LOG_DEBUG, "\n\n");
+}
 
 /// @brief Test whether a packet is a transmit or receive packet
 /// @details A transmit packet will have a 1 in the least significant bit of the class
