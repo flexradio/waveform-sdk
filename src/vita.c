@@ -466,10 +466,11 @@ static void* vita_evt_loop(void* arg)
 
    struct sched_param thread_fifo_priority = {
          .sched_priority = sched_get_priority_max(SCHED_FIFO)};
+
    ret = pthread_setschedparam(pthread_self(), SCHED_FIFO, &thread_fifo_priority);
    if (ret)
    {
-      waveform_log(WF_LOG_DEBUG, "Setting thread to realtime: %s\n", strerror(ret));
+      waveform_log(WF_LOG_DEBUG, "Setting thread to realtime: %m\n");
    }
 
    struct sockaddr_in bind_addr = {
