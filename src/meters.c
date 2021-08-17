@@ -54,11 +54,7 @@ struct unit_info {
 // Constants
 // ****************************************
 static const struct unit_info units[] = {
-      [DB] = {
-            .name = "DB",
-            .radix = 7,
-            .min = -255.0f,
-            .max = 255.0f},
+      [DB] = {.name = "DB", .radix = 7, .min = -255.0f, .max = 255.0f},
       [DBM] = {.name = "DBM", .radix = 7, .min = -255.0f, .max = 255.0f},
       [DBFS] = {.name = "DBFS", .radix = 7, .min = -255.0f, .max = 255.0f},
       [VOLTS] = {.name = "VOLTS", .radix = 8, .min = -127.0f, .max = 127.0f},
