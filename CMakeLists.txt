@@ -109,6 +109,36 @@ target_include_directories(waveform
         )
 define_file_basename_for_sources(waveform)
 
+add_library(waveform-static STATIC ${WAVEFORM_SRCS} ${WAVEFORM_HDRS} ${sds_SOURCES})
+target_link_libraries(waveform-static
+        PUBLIC
+        LibEvent::LibEvent
+        Threads::Threads
+        m
+        PRIVATE
+        pthread_workqueue
+        )
+target_include_directories(waveform-static
+        PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:include/waveform>
+        PRIVATE
+        ${sds_SOURCE_DIR}
+        ${utlist_SOURCE_DIR}/src
+        )
+
+if (ANNA_TEST)
+    add_executable(example-wf
+            example/main.c
+            )
+    target_link_libraries(example-wf waveform-static)
+    target_compile_definitions(example-wf PRIVATE
+            TX_PAYLOAD_IQ_SINE
+            RX_PAYLOAD_SINE
+            )
+endif ()
+
+
 find_package(Doxygen)
 if (DOXYGEN_FOUND)
     set(DOXYGEN_OPTIMIZE_OUTPUT_FOR_C YES)
