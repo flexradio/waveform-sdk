@@ -49,11 +49,6 @@
 #include "waveform.h"
 
 // ****************************************
-// Project Includes
-// ****************************************
-static const uint16_t vita_port = 4991;
-
-// ****************************************
 // Structs, Enums, typedefs
 // ****************************************
 struct data_cb_wq_desc {
@@ -63,6 +58,11 @@ struct data_cb_wq_desc {
    struct waveform_t* wf;
    struct data_cb_wq_desc* next;
 };
+
+// ****************************************
+// Constants
+// ****************************************
+static const uint16_t vita_port = 4991;
 
 // ****************************************
 // Static Variables
