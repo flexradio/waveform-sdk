@@ -695,7 +695,7 @@ ssize_t vita_send_packet(struct vita* vita, struct waveform_vita_packet* packet)
    size_t len = packet->header.length * sizeof(uint32_t);
    packet->header.length = htons(packet->header.length);
 
-   waveform_log(WF_LOG_DEBUG, "Transmitting Packet of length %ld bytes:\n", len);
+   //   waveform_log(WF_LOG_DEBUG, "Transmitting Packet of length %ld bytes:\n", len);
 
    ssize_t bytes_sent;
    if ((bytes_sent = sendto(vita->sock, packet, len, 0, (const struct sockaddr*) &radio_addr, sizeof(struct sockaddr_in))) == -1)
