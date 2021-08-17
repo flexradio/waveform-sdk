@@ -69,6 +69,7 @@ target_include_directories(pthread_workqueue
         ${pthread-wq_SOURCE_DIR}/src
         )
 target_compile_options(pthread_workqueue PUBLIC -fPIC)
+target_link_libraries(pthread_workqueue PRIVATE Threads::Threads)
 
 FetchContent_Declare(utlist
         GIT_REPOSITORY https://github.com/troydhanson/uthash.git
@@ -80,6 +81,7 @@ if (NOT utlist_POPULATED)
 endif ()
 
 find_package(LibEvent REQUIRED)
+find_package(Threads REQUIRED)
 
 add_library(waveform SHARED ${WAVEFORM_SRCS} ${WAVEFORM_HDRS} ${sds_SOURCES})
 set_target_properties(waveform PROPERTIES
@@ -90,7 +92,7 @@ set_target_properties(waveform PROPERTIES
 target_link_libraries(waveform
         PUBLIC
         LibEvent::LibEvent
-        pthread
+        Threads::Threads
         m
         PRIVATE
         pthread_workqueue
