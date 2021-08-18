@@ -140,7 +140,7 @@ static void packet_rx(struct waveform_t* waveform,
 
    waveform_meter_set_float_value(waveform, "junk-snr", (float) ctx->snr);
    waveform_meters_send(waveform);
-   ctx->snr = (ctx->snr + 1) % 1024;
+   ctx->snr = ++ctx->snr > 100 ? -100 : ctx->snr;
 }
 
 static void packet_tx(struct waveform_t* waveform,
