@@ -583,7 +583,8 @@ static void* vita_cb_loop(void* arg __attribute__((unused)))
 
    //  Run this as a lower priority than the thread servicing the socket
    struct sched_param thread_fifo_priority = {
-         .sched_priority = sched_get_priority_max(SCHED_FIFO) - 8};
+         .sched_priority = sched_get_priority_max(SCHED_FIFO) - 8,
+   };
    ret = pthread_setschedparam(pthread_self(), SCHED_FIFO, &thread_fifo_priority);
    if (ret)
    {
@@ -751,8 +752,11 @@ ssize_t vita_send_data_packet(struct vita* vita, float* samples, size_t num_samp
                      .is_float = true,
                      .sample_rate = SR_24K,
                      .bits_per_sample = BPS_32,
-                     .frames_per_sample = FPS_2}},
-         .raw_payload = {0}};
+                     .frames_per_sample = FPS_2,
+               },
+         },
+         .raw_payload = {0},
+   };
 
    for (size_t i = 0; i < num_samples; ++i)
    {
@@ -798,8 +802,14 @@ ssize_t vita_send_raw_data_packet(struct vita* vita, void* data, size_t data_siz
                      .is_float = false,
                      .sample_rate = SR_3K,
                      .bits_per_sample = BPS_8,
-                     .frames_per_sample = FPS_1}},
-         .byte_payload = {.length = htonl(data_size), .data = {0}}};
+                     .frames_per_sample = FPS_1,
+               },
+         },
+         .byte_payload = {
+               .length = htonl(data_size),
+               .data = {0},
+         },
+   };
 
    memcpy(packet.byte_payload.data, data, data_size);
    return vita_send_packet(vita, &packet);

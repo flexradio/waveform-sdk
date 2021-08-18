@@ -240,7 +240,8 @@ ssize_t waveform_meters_send(struct waveform_t* wf)
                .information_class = __constant_cpu_to_be16(SMOOTHLAKE_INFORMATION_CLASS),
                .packet_class_byte = __constant_cpu_to_be16(METER_PACKET_CLASS),
          },
-         .raw_payload = {0}};
+         .raw_payload = {0},
+   };
 
    LL_FOREACH(wf->meter_head, meter)
    {

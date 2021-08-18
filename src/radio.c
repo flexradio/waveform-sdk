@@ -1062,8 +1062,7 @@ int waveform_radio_start(struct radio_t* radio)
    //        //  but potentially suck.
    //    }
 
-   ret = pthread_workqueue_attr_setqueuepriority_np(
-         &wq_attr, WORKQ_DEFAULT_PRIOQUEUE);
+   ret = pthread_workqueue_attr_setqueuepriority_np(&wq_attr, WORKQ_DEFAULT_PRIOQUEUE);
    if (ret)
    {
       waveform_log(WF_LOG_ERROR, "Couldn't set WQ priority: %s\n",
