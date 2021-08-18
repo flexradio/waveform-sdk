@@ -252,8 +252,8 @@ ssize_t waveform_meters_send(struct waveform_t* wf)
 
       if (meter->value != -1)
       {
-         packet.meter[i].id = meter->id;
-         packet.meter[i].value = meter->value;
+         packet.meter[i].id = htons(meter->id);
+         packet.meter[i].value = htons(meter->value);
          meter->value = -1;
          ++i;
       }
