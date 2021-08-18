@@ -230,13 +230,17 @@ ssize_t waveform_meters_send(struct waveform_t* wf)
    struct waveform_vita_packet_sans_ts packet = {
          .header = {
                .packet_type = VITA_PACKET_TYPE_EXT_DATA_WITH_STREAM_ID,
-               .stream_id = METER_STREAM_ID,
+               .class_present = true,
+               .trailer_present = false,
                .integer_timestamp_type = INTEGER_TIMESTAMP_NOT_PRESENT,
                .fractional_timestamp_type = FRACTIONAL_TIMESTAMP_NOT_PRESENT,
                .sequence = wf->vita.meter_sequence++,
+               .stream_id = __constant_cpu_to_be32(METER_STREAM_ID),
+               .oui = __constant_cpu_to_be32(FLEX_OUI),
                .information_class = __constant_cpu_to_be16(SMOOTHLAKE_INFORMATION_CLASS),
                .packet_class_byte = __constant_cpu_to_be16(METER_PACKET_CLASS),
-         }};
+         },
+         .raw_payload = {0}};
 
    LL_FOREACH(wf->meter_head, meter)
    {
