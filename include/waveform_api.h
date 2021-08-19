@@ -398,7 +398,7 @@ ssize_t waveform_send_data_packet(struct waveform_t* waveform, float* samples,
 ///        to send it to the radio's serial port.
 /// @returns 0 on success or a negative value on an error.  Return values are negative values of errno.h and will return
 ///          -E2BIG on a short write to the network.
-ssize_t waveform_send_raw_data_packet(struct waveform_t* waveform, uint8_t* data, size_t data_size, enum waveform_packet_type type);
+ssize_t waveform_send_byte_data_packet(struct waveform_t* waveform, uint8_t* data, size_t data_size, enum waveform_packet_type type);
 
 /// @brief Gets the length of a received packet
 /// @details Returns the length of the data in a packet received from the radio.

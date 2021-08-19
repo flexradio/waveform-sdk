@@ -766,7 +766,7 @@ ssize_t vita_send_data_packet(struct vita* vita, float* samples, size_t num_samp
    return vita_send_packet(vita, &packet);
 }
 
-ssize_t vita_send_raw_data_packet(struct vita* vita, void* data, size_t data_size, enum waveform_packet_type type)
+ssize_t vita_send_byte_data_packet(struct vita* vita, void* data, size_t data_size, enum waveform_packet_type type)
 {
    if (data_size > MEMBER_SIZE(struct waveform_vita_packet, byte_payload.data))
    {

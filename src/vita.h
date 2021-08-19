@@ -358,7 +358,7 @@ ssize_t vita_send_data_packet(struct vita* vita, float* samples, size_t num_samp
 ///        to send it to the radio's serial port.
 /// @returns 0 on success or a negative value on an error.  Return values are negative values of errno.h and will return
 ///          -E2BIG on a short write to the network.
-ssize_t vita_send_raw_data_packet(struct vita* vita, void* data, size_t data_size, enum waveform_packet_type type);
+ssize_t vita_send_byte_data_packet(struct vita* vita, void* data, size_t data_size, enum waveform_packet_type type);
 
 /// @brief Stops a VITA processing loop and releases all of its resources
 /// @details When you are done using a VITA loop use this function to clean up resources.  Usage would be, for example, when the
