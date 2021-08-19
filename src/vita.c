@@ -425,12 +425,12 @@ static void vita_read_cb(evutil_socket_t socket, short what, void* ctx)
          cb_list = cur_wf->rx_data_cbs;
       }
    }
-   else if (packet.header.packet_type == VITA_PACKET_TYPE_IF_DATA_WITH_STREAM_ID &&
-            packet.header.packet_class.is_audio &&
+   else if (packet.header.packet_type == VITA_PACKET_TYPE_EXT_DATA_WITH_STREAM_ID &&
+            packet.header.packet_class.is_audio == true &&
             packet.header.packet_class.bits_per_sample == BPS_8 &&
             packet.header.packet_class.sample_rate == SR_3K &&
             packet.header.packet_class.frames_per_sample == FPS_1 &&
-            packet.header.packet_class.is_float)
+            packet.header.packet_class.is_float == false)
    {
       // This is a byte data packet.
       // We don't swap the data around here so that we are transparent
@@ -785,7 +785,7 @@ ssize_t vita_send_raw_data_packet(struct vita* vita, void* data, size_t data_siz
 
    struct waveform_vita_packet packet = {
          .header = {
-               .packet_type = VITA_PACKET_TYPE_IF_DATA_WITH_STREAM_ID,
+               .packet_type = VITA_PACKET_TYPE_EXT_DATA_WITH_STREAM_ID,
                .class_present = true,
                .trailer_present = false,
                .integer_timestamp_type = INTEGER_TIMESTAMP_UTC,
