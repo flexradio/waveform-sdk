@@ -436,7 +436,7 @@ static void vita_read_cb(evutil_socket_t socket, short what, void* ctx)
       // We don't swap the data around here so that we are transparent
       // to the user who is sending it.
       packet.byte_payload.length = ntohl(packet.byte_payload.length);
-      cb_list = is_transmit_packet(&packet) ? cb_list = cur_wf->tx_byte_data_cbs : cur_wf->rx_byte_data_cbs;
+      cb_list = cur_wf->byte_data_cbs;
    }
    else
    {
@@ -767,7 +767,7 @@ ssize_t vita_send_data_packet(struct vita* vita, float* samples, size_t num_samp
    return vita_send_packet(vita, &packet);
 }
 
-ssize_t vita_send_byte_data_packet(struct vita* vita, void* data, size_t data_size, enum waveform_packet_type type)
+ssize_t vita_send_byte_data_packet(struct vita* vita, void* data, size_t data_size)
 {
    if (data_size > MEMBER_SIZE(struct waveform_vita_packet, byte_payload.data))
    {
