@@ -792,7 +792,7 @@ ssize_t vita_send_byte_data_packet(struct vita* vita, void* data, size_t data_si
                .integer_timestamp_type = INTEGER_TIMESTAMP_UTC,
                .fractional_timestamp_type = FRACTIONAL_TIMESTAMP_REAL_TIME,
                .sequence = vita->byte_data_sequence++,
-               .length = DIV_ROUND_UP(data_size, sizeof(uint32_t)),
+               .length = DIV_ROUND_UP(data_size, sizeof(uint32_t)) + 1,
                .timestamp_int = htonl(current_time.tv_sec),
                .timestamp_frac = htobe64(current_time.tv_nsec * 1000),
                .stream_id = type == htonl(TRANSMITTER_DATA ? vita->byte_stream_in_id : vita->byte_stream_out_id),
