@@ -551,6 +551,7 @@ static void* vita_evt_loop(void* arg)
 
    vita->data_sequence = 0;
    vita->meter_sequence = 0;
+   vita->byte_data_sequence = 0;
 
    waveform_send_api_command_cb(wf, NULL, NULL, "waveform set %s udpport=%hu", wf->name, vita->port);
    waveform_send_api_command_cb(wf, NULL, NULL, "client udpport %hu", vita->port);
@@ -790,7 +791,7 @@ ssize_t vita_send_byte_data_packet(struct vita* vita, void* data, size_t data_si
                .trailer_present = false,
                .integer_timestamp_type = INTEGER_TIMESTAMP_UTC,
                .fractional_timestamp_type = FRACTIONAL_TIMESTAMP_REAL_TIME,
-               .sequence = vita->data_sequence++,
+               .sequence = vita->byte_data_sequence++,
                .length = DIV_ROUND_UP(data_size, sizeof(uint32_t)),
                .timestamp_int = htonl(current_time.tv_sec),
                .timestamp_frac = htobe64(current_time.tv_nsec * 1000),

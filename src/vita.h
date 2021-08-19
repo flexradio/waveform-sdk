@@ -290,19 +290,20 @@ struct waveform_vita_packet_sans_ts {
 #pragma pack(pop)
 
 struct vita {
-   int sock;
-   unsigned short port;// XXX Do we really need to keep this around?
-   pthread_t thread;
+   int                sock;
+   unsigned short     port;// XXX Do we really need to keep this around?
+   pthread_t          thread;
    struct event_base* base;
-   struct event* read_evt;
-   _Atomic uint8_t meter_sequence;
-   _Atomic uint8_t data_sequence;
-   uint32_t tx_stream_in_id;
-   uint32_t rx_stream_in_id;
-   uint32_t tx_stream_out_id;
-   uint32_t rx_stream_out_id;
-   uint32_t byte_stream_in_id;
-   uint32_t byte_stream_out_id;
+   struct event*      read_evt;
+   _Atomic uint8_t    meter_sequence;
+   _Atomic uint8_t    data_sequence;
+   _Atomic uint8_t    byte_data_sequence;
+   uint32_t           tx_stream_in_id;
+   uint32_t           rx_stream_in_id;
+   uint32_t           tx_stream_out_id;
+   uint32_t           rx_stream_out_id;
+   uint32_t           byte_stream_in_id;
+   uint32_t           byte_stream_out_id;
 };
 #pragma clang diagnostic pop
 
