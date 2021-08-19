@@ -45,7 +45,8 @@ struct junk_context {
    pthread_mutex_t rx_phase_lock;
    pthread_mutex_t tx_phase_lock;
    int tx;
-   short snr;
+   short           snr;
+   uint64_t        byte_data_counter;
 };
 
 // ****************************************
@@ -141,6 +142,23 @@ static void packet_rx(struct waveform_t* waveform,
    waveform_meter_set_float_value(waveform, "junk-snr", (float) ctx->snr);
    waveform_meters_send(waveform);
    ctx->snr = ++ctx->snr > 100 ? -100 : ctx->snr;
+
+   if (++ctx->byte_data_counter % 100 == 0)
+   {
+      size_t  len = snprintf(NULL, 0, "Callback Counter: %ld\n", ctx->byte_data_counter);
+      uint8_t data_message[len + 1];
+      snprintf(data_message, sizeof(data_message), "Callback Counter: %ld\n", ctx->byte_data_counter);
+      waveform_send_byte_data_packet(waveform, data_message, sizeof(data_message));
+   }
+}
+
+static void data_rx(struct waveform_t*           waveform,
+                    struct waveform_vita_packet* packet, size_t packet_size,
+                    void* arg __attribute__((unused)))
+{
+   fprintf(stderr, "Got packet...\n");
+   fprintf(stderr, "  Length: %d\n", get_packet_byte_data_length(packet));
+   fprintf(stderr, "  Content: %s\n", get_packet_byte_data(packet));
 }
 
 static void packet_tx(struct waveform_t* waveform,
@@ -303,6 +321,7 @@ int main(int argc, char** argv)
    waveform_register_state_cb(test_waveform, state_test, NULL);
    waveform_register_rx_data_cb(test_waveform, packet_rx, NULL);
    waveform_register_tx_data_cb(test_waveform, packet_tx, NULL);
+   waveform_register_byte_data_cb(test_waveform, data_rx, NULL);
    waveform_register_command_cb(test_waveform, "set", test_command, NULL);
    waveform_register_meter_list(test_waveform, meters, ARRAY_SIZE(meters));
    waveform_set_context(test_waveform, &ctx);
