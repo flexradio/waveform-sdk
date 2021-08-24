@@ -83,7 +83,7 @@ tempted to directly access members of the structure as their names, types, and l
 API implementation.
 
 * [`get_packet_data`](html/waveform__api_8h.html#a874c71a5961a9cb5f4730f839da59035) will return an array of floating
-  point numbers representing the data from the radio. The will be in interleaved format with either I first followed by
+  point numbers representing the data from the radio. They will be in interleaved format with either I first followed by
   Q in the case of a `RAW` underlying mode, or Left followed by Right in the case of any other underlying mode.
 * [`get_packet_len`](html/waveform__api_8h.html#a91dd9bb3ff6c0e998947026f57012496) will return a 16-bit unsigned integer
   representing the length of the array returned by `get_packet_data`. Note that there are *two* 32-bit words per sample,
