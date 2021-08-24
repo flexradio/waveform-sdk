@@ -27,6 +27,7 @@
 #include <netdb.h>
 #include <netinet/in.h>
 #include <pthread.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -40,12 +41,12 @@
 // Structs, Enums, typedefs
 // ****************************************
 struct junk_context {
-   int rx_phase;
-   int tx_phase;
+   uint8_t         rx_phase;
+   uint8_t         tx_phase;
    pthread_mutex_t rx_phase_lock;
    pthread_mutex_t tx_phase_lock;
-   int tx;
-   short           snr;
+   bool            tx;
+   int16_t         snr;
    uint64_t        byte_data_counter;
 };
 
@@ -119,7 +120,7 @@ static void packet_rx(struct waveform_t* waveform,
 {
    struct junk_context* ctx = waveform_get_context(waveform);
 
-   if (ctx->tx == 1)
+   if (ctx->tx)
    {
       return;
    }
@@ -167,7 +168,7 @@ static void packet_tx(struct waveform_t* waveform,
 {
    struct junk_context* ctx = waveform_get_context(waveform);
 
-   if (ctx->tx != 1)
+   if (false == ctx->tx)
    {
       return;
    }
@@ -212,11 +213,11 @@ static void state_test(struct waveform_t* waveform, enum waveform_state state,
          break;
       case PTT_REQUESTED:
          fprintf(stderr, "ptt requested\n");
-         ctx->tx = 1;
+         ctx->tx = true;
          break;
       case UNKEY_REQUESTED:
          fprintf(stderr, "unkey requested\n");
-         ctx->tx = 0;
+         ctx->tx = false;
          break;
       default:
          fprintf(stderr, "unknown state received");
