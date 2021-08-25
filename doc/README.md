@@ -78,21 +78,75 @@ This callback is called when the user has requested the radio start or stop tran
 ###Data Handling
 The main job of the waveform is to handle and process data, of course. When the waveform becomes active, the API library arranges to start an event loop to handle the data packets and pass the resulting data to the user-defined callbacks. A single callback is invoked for every VITA-49 packet recieved by the API. `waveform_register_rx_cb` is used to register a callback to handle data coming from the radio's receiver. Similarly, `waveform_register_tx_cb` is used to register a callback to handle data coming from the radio's microphone to be transmitted.
 
-There are utility functions to parse the opaque VITA-49 packet structure passed to these callback functions. Do not be tempted to directly access members of the structure as their names, types, and layouts may change due to needs of the API implementation. 
+There are utility functions to parse the opaque VITA-49 packet structure passed to these callback functions. Do not be
+tempted to directly access members of the structure as their names, types, and layouts may change due to needs of the
+API implementation.
 
-* [`get_packet_data`](html/waveform__api_8h.html#a874c71a5961a9cb5f4730f839da59035) will return an array of floating point numbers representing the data from the radio. The will be in interleaved format with either I first followed by Q in the case of a `RAW` underlying mode, or Left followed by Right in the case of any other underlying mode.
-* [`get_packet_len`](html/waveform__api_8h.html#a91dd9bb3ff6c0e998947026f57012496) will return a 16-bit unsigned integer representing the length of the array returned by `get_packet_data`. Note that there are *two* 32-bit words per sample, meaning that the array has twice as many values (I/Q or L/R) as there are samples.
-* [`get_packet_ts_int`](html/waveform__api_8h.html#ad9061cb8be95e5fc2616b3a5f689b398) will return the value of the integral part of the packet's timestamp. The VITA-49 spec specifies that this will be a 32-bit unsigned integer specifying seconds since the UNIX epoch; 00:00:00Z, January 1, 1970.
-* [`get_packet_ts_frac`](html/waveform__api_8h.html#a8ad0a47c35102bc63f49f01de9f28732) will return the value of the fractional portioin of the packet's timestamp.  The VITA-49 spec specifies multiple formats for this. The only one currently utilized by the radio is a count of the samples since the top of the second. This function is likely to change in the future as timestamp formats are refined.
+* [`get_packet_data`](html/waveform__api_8h.html#a874c71a5961a9cb5f4730f839da59035) will return an array of floating
+  point numbers representing the data from the radio. They will be in interleaved format with either I first followed by
+  Q in the case of a `RAW` underlying mode, or Left followed by Right in the case of any other underlying mode.
+* [`get_packet_len`](html/waveform__api_8h.html#a91dd9bb3ff6c0e998947026f57012496) will return a 16-bit unsigned integer
+  representing the length of the array returned by `get_packet_data`. Note that there are *two* 32-bit words per sample,
+  meaning that the array has twice as many values (I/Q or L/R) as there are samples.
+* [`get_packet_ts_int`](html/waveform__api_8h.html#ad9061cb8be95e5fc2616b3a5f689b398) will return the value of the
+  integral part of the packet's timestamp. The VITA-49 spec specifies that this will be a 32-bit unsigned integer
+  specifying seconds since the UNIX epoch; 00:00:00Z, January 1, 1970.
+* [`get_packet_ts_frac`](html/waveform__api_8h.html#a8ad0a47c35102bc63f49f01de9f28732) will return the value of the
+  fractional portioin of the packet's timestamp. The VITA-49 spec specifies multiple formats for this. The only one
+  currently utilized by the radio is a count of the samples since the top of the second. This function is likely to
+  change in the future as timestamp formats are refined.
 
-When the waveform has processed the incoming data from whatever source it can send data back to the radio in response. This can either take the form of outgoing packets to the speaker for use in recieve chains, or outgoing packets to the transmitter for the creation of RF. The [`waveform_send_data_packet`](html/waveform__api_8h.html#a52e6b7f438ef37e8bd74f5e83be3f40d) handles both of these cases. When invoked with the `TRANSMITTER_DATA` type, it will send samples to the transmitter. When invoked with the `SPEAKER_DATA` type, the samples will be played as audio through the speaker.
+When the waveform has processed the incoming data from whatever source it can send data back to the radio in response.
+This can either take the form of outgoing packets to the speaker for use in recieve chains, or outgoing packets to the
+transmitter for the creation of RF.
+The [`waveform_send_data_packet`](html/waveform__api_8h.html#a52e6b7f438ef37e8bd74f5e83be3f40d) handles both of these
+cases. When invoked with the `TRANSMITTER_DATA` type, it will send samples to the transmitter. When invoked with
+the `SPEAKER_DATA` type, the samples will be played as audio through the speaker.
 
-###Sending Control Commands
-Commands may be sent to the radio control channel to affect its operation. These can be used for tuning frequency, requesting that the transmitter be keyed, changing filter parameters, or a variety of other functions. Detailed command syntax information is available on the [FlexRadio Wiki](http://wiki.flexradio.com/index.php?title=SmartSDR_TCP/IP_API).
+### Byte Stream Data Handling
 
-The API library has functions to assist you in sending control commands to the radio. The primary of these is [`waveform_send_api_command_cb`](html/waveform__api_8h.html#a0255c1e92befc590cd54b55aee8143af). This function uses a `printf(3)` style varargs syntax to send command strings to the radio. In addition, this command provides for the API author to assign a response callback that will be called when the radio responds to the command. This is useful for when the command returns a parameter in its message that the waveform may wish to use. The API itself uses this to determine mappings between meter names and index numbers. Since the API library is based on asynchronous concepts, there is no idea of blocking a call until the response returns, so you must structure your callbacks such that your desired program flow is achieved. The callback can be passed an optional context to store call specific data as necessary.  This pointer is passed unmodified to the callback.
+A waveform may have occasion to deal with byte-oriented data. This could be because a digital waveform may want to
+source data from the serial port, or a waveform may wish to send digital data to the RapidM module for further
+modulation and processing. To accomplish this, the radio will create an input and output "byte stream" when the waveform
+is created. These streams can be connected to a variety of sources and sinks within the radio. You can connect the
+streams together with the `byte_stream connect` command. The syntax is
+`byte_stream connect input=MyWaveform output=MyWaveform`. The name of the input and output streams to the waveform are
+the same as the name you have given the waveform in your `waveform_create` call. For testing and validation the above
+syntax will connect the input to the output essentially creating a loopback interface.
 
-If you do not care about the response from a command, you may use [`waveform_send_api_command`](html/waveform__api_8h.html#a2950e21aa7ceef26c56148bbf1f6b82c) which does not invoke a callback. The implementation of this function is as a macro that passes `NULL` to both the callback and argument parameters of the `waveform_send_api_command_cb` function. Note that this usages are slightly more efficient than their callback counterparts because the implementation doesn't store state for these nonexistent callback requests.
+Byte data can be sent to the radio with the
+[`waveform_send_byte_data_packet`](html/waveform__api_8h.html#a8ad0a47c35102bc63f49f01de9f28732) call. Conversely, raw
+data packets can be recieved by registering a callback with
+[`waveform_register_byte_data_cb`](html/waveform__api_8h.html#a8ad0a47c35102bc63f49f01de9f28732). The functions
+[`get_packet_byte_data_length`](html/waveform__api_8h.html#a8ad0a47c35102bc63f49f01de9f28732) and
+[`get_packet_byte_data`](html/waveform__api_8h.html#a8ad0a47c35102bc63f49f01de9f28732) allow access to the data. Please
+note that no data is buffered, and your waveform will receive data in chunks as VITA-49 packets are received from the
+radio. Also the transfer of data is transparent; no byte order correction or other data modification is performed by
+either the radio or the waveform API. Since the transport for the data is via VITA-49 packets, there is an upper limit
+on the amount of data you can send in a single `waveform_send_byte_data` call. This should be set to 1436 bytes, but
+`waveform_send_byte_data` will return an error if you exceed the limit.
+
+### Sending Control Commands
+
+Commands may be sent to the radio control channel to affect its operation. These can be used for tuning frequency,
+requesting that the transmitter be keyed, changing filter parameters, or a variety of other functions. Detailed command
+syntax information is available on the [FlexRadio Wiki](http://wiki.flexradio.com/index.php?title=SmartSDR_TCP/IP_API).
+
+The API library has functions to assist you in sending control commands to the radio. The primary of these
+is [`waveform_send_api_command_cb`](html/waveform__api_8h.html#a0255c1e92befc590cd54b55aee8143af). This function uses
+a `printf(3)` style varargs syntax to send command strings to the radio. In addition, this command provides for the API
+author to assign a response callback that will be called when the radio responds to the command. This is useful for when
+the command returns a parameter in its message that the waveform may wish to use. The API itself uses this to determine
+mappings between meter names and index numbers. Since the API library is based on asynchronous concepts, there is no
+idea of blocking a call until the response returns, so you must structure your callbacks such that your desired program
+flow is achieved. The callback can be passed an optional context to store call specific data as necessary. This pointer
+is passed unmodified to the callback.
+
+If you do not care about the response from a command, you may
+use [`waveform_send_api_command`](html/waveform__api_8h.html#a2950e21aa7ceef26c56148bbf1f6b82c) which does not invoke a
+callback. The implementation of this function is as a macro that passes `NULL` to both the callback and argument
+parameters of the `waveform_send_api_command_cb` function. Note that this usages are slightly more efficient than their
+callback counterparts because the implementation doesn't store state for these nonexistent callback requests.
 
 	###Keyword Arguments - Not Yet Implemented
 	Many radio messages contain "keyword arguments" in the format `key=value`.  For example, a status message may contain, in part, `radio slices=4 panadapters=4 lineout_gain=60 lineout_mute=0 headphone_gain=80 headphone_mute=0 remote_on_enabled=0 pll_done=0`.  There are numerous keyword arguments in this line: `slices=4`, `lineout_gain=60`, etc. Many times a waveform only cares about a particular key in a status line. Since callbacks of this type almost universally recieve the `argc`/`argv` format arguments common in UNIX implementations, the API provides some functions to parse these.

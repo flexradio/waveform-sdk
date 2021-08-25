@@ -21,7 +21,11 @@
 // ****************************************
 // System Includes
 // ****************************************
+#include <errno.h>
+#include <limits.h>
 #include <math.h>
+#include <stdbool.h>
+#include <stdlib.h>
 #include <string.h>
 
 // ****************************************
@@ -87,6 +91,26 @@ sds find_kwarg(int argc, sds* argv, sds key)
    return NULL;
 }
 
+bool find_kwarg_as_int(int argc, sds* argv, sds key, uint32_t* value)
+{
+   sds val_string;
+
+   if ((val_string = find_kwarg(argc, argv, key)) == NULL)
+   {
+      return false;
+   }
+
+   errno = 0;
+   *value = strtoul(val_string, NULL, 0);
+   if ((errno == ERANGE && *value == ULONG_MAX) || (errno != 0 && *value == 0))
+   {
+      *value = 0;
+      return false;
+   }
+
+   return true;
+}
+
 inline short float_to_fixed(double input, unsigned char fractional_bits)
 {
    return (short) (round(input * (1u << fractional_bits)));
@@ -110,18 +134,4 @@ const char* waveform_log_level_describe(int level)
 void waveform_set_log_level(enum waveform_log_levels level)
 {
    waveform_log_level = level;
-}
-
-//  Flip around the order of the words in the fractional timestamp field if we're on a little endian
-//  platform.  Otherwise they're in the wrong order when put into a uint64_t.
-void swap_frac_timestamp(uint32_t* components)
-{
-#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-   uint32_t tmp = components[0];
-
-   components[0] = components[1];
-   components[1] = tmp;
-#else
-   return;
-#endif
 }

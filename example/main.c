@@ -22,9 +22,14 @@
 // System Includes
 // ****************************************
 #include <arpa/inet.h>
+#include <getopt.h>
+#include <libgen.h>
+#include <netdb.h>
 #include <netinet/in.h>
 #include <pthread.h>
+#include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 // ****************************************
@@ -36,12 +41,13 @@
 // Structs, Enums, typedefs
 // ****************************************
 struct junk_context {
-   int rx_phase;
-   int tx_phase;
+   uint8_t         rx_phase;
+   uint8_t         tx_phase;
    pthread_mutex_t rx_phase_lock;
    pthread_mutex_t tx_phase_lock;
-   int tx;
-   short snr;
+   bool            tx;
+   int16_t         snr;
+   uint64_t        byte_data_counter;
 };
 
 // ****************************************
@@ -114,7 +120,7 @@ static void packet_rx(struct waveform_t* waveform,
 {
    struct junk_context* ctx = waveform_get_context(waveform);
 
-   if (ctx->tx == 1)
+   if (ctx->tx)
    {
       return;
    }
@@ -134,9 +140,26 @@ static void packet_rx(struct waveform_t* waveform,
    waveform_send_data_packet(waveform, null_samples,
                              get_packet_len(packet), SPEAKER_DATA);
 
-   waveform_meter_set_float_value(waveform, "junk-snr", ctx->snr);
+   waveform_meter_set_float_value(waveform, "junk-snr", (float) ctx->snr);
    waveform_meters_send(waveform);
-   ctx->snr = (ctx->snr + 1) % 1024;
+   ctx->snr = ++ctx->snr > 100 ? -100 : ctx->snr;
+
+   if (++ctx->byte_data_counter % 100 == 0)
+   {
+      size_t  len = snprintf(NULL, 0, "Callback Counter: %ld\n", ctx->byte_data_counter);
+      uint8_t data_message[len + 1];
+      snprintf(data_message, sizeof(data_message), "Callback Counter: %ld\n", ctx->byte_data_counter);
+      waveform_send_byte_data_packet(waveform, data_message, sizeof(data_message));
+   }
+}
+
+static void data_rx(struct waveform_t*           waveform,
+                    struct waveform_vita_packet* packet, size_t packet_size,
+                    void* arg __attribute__((unused)))
+{
+   fprintf(stderr, "Got packet...\n");
+   fprintf(stderr, "  Length: %d\n", get_packet_byte_data_length(packet));
+   fprintf(stderr, "  Content: %s\n", get_packet_byte_data(packet));
 }
 
 static void packet_tx(struct waveform_t* waveform,
@@ -145,7 +168,7 @@ static void packet_tx(struct waveform_t* waveform,
 {
    struct junk_context* ctx = waveform_get_context(waveform);
 
-   if (ctx->tx != 1)
+   if (false == ctx->tx)
    {
       return;
    }
@@ -190,11 +213,11 @@ static void state_test(struct waveform_t* waveform, enum waveform_state state,
          break;
       case PTT_REQUESTED:
          fprintf(stderr, "ptt requested\n");
-         ctx->tx = 1;
+         ctx->tx = true;
          break;
       case UNKEY_REQUESTED:
          fprintf(stderr, "unkey requested\n");
-         ctx->tx = 0;
+         ctx->tx = false;
          break;
       default:
          fprintf(stderr, "unknown state received");
@@ -202,24 +225,89 @@ static void state_test(struct waveform_t* waveform, enum waveform_state state,
    }
 }
 
+static void usage(const char* progname)
+{
+   fprintf(stderr, "Usage: %s [options]\n\n", progname);
+   fprintf(stderr, "Options:\n");
+   fprintf(stderr, "  -h <hostname>, --host=<hostname>  Hostname or IP of the radio [default: perform discovery]\n");
+}
+
+static const struct option example_options[] = {
+      {
+            .name = "host",
+            .has_arg = required_argument,
+            .flag = NULL,
+            .val = 'h'//  This keeps the value the same as the short value -h
+      },
+      {0}// Sentinel
+};
+
 // ****************************************
 // Global Functions
 // ****************************************
 int main(int argc, char** argv)
 {
-   struct sockaddr_in* addr;
+   struct sockaddr_in* addr = NULL;
 
    struct junk_context ctx = {0};
 
-   struct timeval timeout = {
-         .tv_sec = 10,
-         .tv_usec = 0};
-   addr = waveform_discover_radio(&timeout);
+   while (1)
+   {
+      int indexptr;
+      int option = getopt_long(argc, argv, "h:", example_options, &indexptr);
 
+      if (option == -1)// We're done with options
+         break;
+
+      switch (option)
+      {
+         case 'h': {
+            struct addrinfo* addrlist;
+            int ret = getaddrinfo(optarg, "4992", NULL, &addrlist);
+            if (ret != 0)
+            {
+               fprintf(stderr, "Host lookup for %s failed: %s\n", optarg, gai_strerror(ret));
+               exit(1);
+            }
+
+            addr = malloc(sizeof(*addr));
+            memcpy(addr, addrlist[0].ai_addr, sizeof(*addr));
+
+            freeaddrinfo(addrlist);
+            break;
+         }
+         default:
+            usage(basename(argv[0]));
+            exit(1);
+            break;
+      }
+   }
+
+   if (optind < argc)
+   {
+      fprintf(stderr, "Non option elements detected:");
+      for (size_t i = optind; i < argc; ++i)
+      {
+         fprintf(stderr, " %s", argv[i]);
+      }
+      fprintf(stderr, "\n");
+      usage(basename(argv[0]));
+      exit(1);
+   }
+
+   //  If we didn't get an address on the command line, perform discovery for it.
    if (addr == NULL)
    {
-      fprintf(stderr, "No radio found");
-      return 0;
+      const struct timeval timeout = {
+            .tv_sec = 10,
+            .tv_usec = 0};
+
+      addr = waveform_discover_radio(&timeout);
+      if (addr == NULL)
+      {
+         fprintf(stderr, "No radio found");
+         return 0;
+      };
    }
 
    fprintf(stderr, "Connecting to radio at %s:%u\n", inet_ntoa(addr->sin_addr), ntohs(addr->sin_port));
@@ -234,6 +322,7 @@ int main(int argc, char** argv)
    waveform_register_state_cb(test_waveform, state_test, NULL);
    waveform_register_rx_data_cb(test_waveform, packet_rx, NULL);
    waveform_register_tx_data_cb(test_waveform, packet_tx, NULL);
+   waveform_register_byte_data_cb(test_waveform, data_rx, NULL);
    waveform_register_command_cb(test_waveform, "set", test_command, NULL);
    waveform_register_meter_list(test_waveform, meters, ARRAY_SIZE(meters));
    waveform_set_context(test_waveform, &ctx);

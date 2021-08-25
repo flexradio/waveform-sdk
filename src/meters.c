@@ -54,11 +54,7 @@ struct unit_info {
 // Constants
 // ****************************************
 static const struct unit_info units[] = {
-      [DB] = {
-            .name = "DB",
-            .radix = 7,
-            .min = -255.0f,
-            .max = 255.0f},
+      [DB] = {.name = "DB", .radix = 7, .min = -255.0f, .max = 255.0f},
       [DBM] = {.name = "DBM", .radix = 7, .min = -255.0f, .max = 255.0f},
       [DBFS] = {.name = "DBFS", .radix = 7, .min = -255.0f, .max = 255.0f},
       [VOLTS] = {.name = "VOLTS", .radix = 8, .min = -127.0f, .max = 127.0f},
@@ -230,33 +226,41 @@ ssize_t waveform_meters_send(struct waveform_t* wf)
 {
    struct waveform_meter* meter;
    int i = 0;
-   struct waveform_vita_packet_sans_ts* packet = calloc(1, sizeof(*packet));
 
-   packet->header.packet_type = VITA_PACKET_TYPE_EXT_DATA_WITH_STREAM_ID;
-   packet->header.stream_id = METER_STREAM_ID;
-   packet->header.class_id = METER_CLASS_ID;
-
-   packet->header.timestamp_type = wf->vita.meter_sequence++ & 0x0fu;
+   struct waveform_vita_packet_sans_ts packet = {
+         .header = {
+               .packet_type = VITA_PACKET_TYPE_EXT_DATA_WITH_STREAM_ID,
+               .class_present = true,
+               .trailer_present = false,
+               .integer_timestamp_type = INTEGER_TIMESTAMP_NOT_PRESENT,
+               .fractional_timestamp_type = FRACTIONAL_TIMESTAMP_NOT_PRESENT,
+               .sequence = wf->vita.meter_sequence++,
+               .stream_id = __constant_cpu_to_be32(METER_STREAM_ID),
+               .oui = __constant_cpu_to_be32(FLEX_OUI),
+               .information_class = __constant_cpu_to_be16(SMOOTHLAKE_INFORMATION_CLASS),
+               .packet_class_byte = __constant_cpu_to_be16(METER_PACKET_CLASS),
+         },
+         .raw_payload = {0},
+   };
 
    LL_FOREACH(wf->meter_head, meter)
    {
-      if (i >= sizeof(packet->meter) / sizeof(packet->meter[0]))
+      if (i >= sizeof(packet.meter) / sizeof(packet.meter[0]))
       {
          waveform_log(WF_LOG_ERROR, "Meters exceed max size\n");
-         free(packet);
          return -EFBIG;
       }
 
       if (meter->value != -1)
       {
-         packet->meter[i].id = meter->id;
-         packet->meter[i].value = meter->value;
+         packet.meter[i].id = htons(meter->id);
+         packet.meter[i].value = htons(meter->value);
          meter->value = -1;
          ++i;
       }
    }
 
-   packet->header.length = i;
+   packet.header.length = i;
 
-   return vita_send_packet(&wf->vita, (struct waveform_vita_packet*) packet);
+   return vita_send_packet(&wf->vita, (struct waveform_vita_packet*) &packet);
 }

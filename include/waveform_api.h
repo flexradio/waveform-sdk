@@ -69,8 +69,6 @@ enum waveform_packet_type
 {
    SPEAKER_DATA,
    TRANSMITTER_DATA,
-   RAW_DATA_TX,
-   RAW_DATA_RX
 };
 
 /// @brief The levels for log messages.  Higher is more severe.
@@ -205,23 +203,14 @@ int waveform_register_rx_data_cb(struct waveform_t* waveform,
 /// @return 0 upon success, -1 on failure
 int waveform_register_unknown_data_cb(struct waveform_t* waveform, waveform_data_cb_t cb, void* arg);
 
-/// @brief Register a raw byte receive data packet callback for a waveform.
-/// @details Registers a callback that is called when there is a raw byte receive packet from the radio.  This could
-///          be receive data inbound from the Rapid M module or other data producing process.
+/// @brief Register a raw byte data packet callback for a waveform.
+/// @details Registers a callback that is called when there is a raw byte VITA-49 packet from the radio.  This could
+///          be data inbound from the radio's serial port or other data producing process.
 /// @param waveform Pointer to the waveform structure returned by waveform_create()
 /// @param cb The callback function
 /// @param arg A user-defined argument to be passed to the callback on execution.  Can be NULL.
 /// @return 0 upon success, -1 on failure
-int waveform_register_tx_byte_data_cb(struct waveform_t* waveform, waveform_data_cb_t cb, void* arg);
-
-/// @brief Register a raw byte transmit data packet callback for a waveform.
-/// @details Registers a callback that is called when there is a raw byte transmit VITA-49 packet from the radio.  This could
-///          be transmit data inbound from the radio's serial port or other data producing proces.
-/// @param waveform Pointer to the waveform structure returned by waveform_create()
-/// @param cb The callback function
-/// @param arg A user-defined argument to be passed to the callback on execution.  Can be NULL.
-/// @return 0 upon success, -1 on failure
-int waveform_register_rx_byte_data_cb(struct waveform_t* waveform, waveform_data_cb_t cb, void* arg);
+int waveform_register_byte_data_cb(struct waveform_t* waveform, waveform_data_cb_t cb, void* arg);
 
 /// @brief Register a status callback.
 /// @details Registers a callback is called when the radio status changes.  This function also handles creating the
@@ -394,11 +383,9 @@ ssize_t waveform_send_data_packet(struct waveform_t* waveform, float* samples,
 /// @param waveform The waveform sending the data
 /// @param data A reference to an array of bytes to send
 /// @param data_size The number of bytes in the samples array
-/// @param type The type of data packet to send, either RAW_DATA_TX to send the samples to the radio transmitter, or RAW_DATA_RX
-///        to send it to the radio's serial port.
 /// @returns 0 on success or a negative value on an error.  Return values are negative values of errno.h and will return
 ///          -E2BIG on a short write to the network.
-ssize_t waveform_send_raw_data_packet(struct waveform_t* waveform, uint8_t* data, size_t data_size, enum waveform_packet_type type);
+ssize_t waveform_send_byte_data_packet(struct waveform_t* waveform, uint8_t* data, size_t data_size);
 
 /// @brief Gets the length of a received packet
 /// @details Returns the length of the data in a packet received from the radio.

@@ -22,6 +22,12 @@
 #define WAVEFORM_SDK_VITA_H
 
 // ****************************************
+// System Includes
+// ****************************************
+#include <asm/byteorder.h>
+#include <stdbool.h>
+
+// ****************************************
 // Third Party Library Includes
 // ****************************************
 #include <event2/event.h>
@@ -29,74 +35,175 @@
 #include <stdint.h>
 #include <tgmath.h>
 
+// ****************************************
+// Project Includes
+// ****************************************
+#include "utils.h"
 #include "waveform_api.h"
 
 // ****************************************
 // Macros
 // ****************************************
-#define VITA_PACKET_TYPE_EXT_DATA_WITH_STREAM_ID 0x38u
-#define VITA_PACKET_TYPE_IF_DATA_WITH_STREAM_ID 0x18u
-
-
-#define FLEX_OUI 0x00001c2dLLU
-#define DISCOVERY_CLASS_ID ((0x534cffffLLU << 32u) | FLEX_OUI)
-#define DISCOVERY_STREAM_ID 0x00000800u
-#define METER_STREAM_ID 0x88000000u
-#define METER_CLASS_ID ((0x534c8002LLU << 32u) | FLEX_OUI)
-#define AUDIO_CLASS_ID ((0x534c03e3LLU << 32u) | FLEX_OUI)
-#define DATA_CLASS_ID ((0x534c0100LLU << 32u) | FLEX_OUI)
-
 #define VITA_PACKET_HEADER_SIZE(packet) \
-   (sizeof((packet)->header))
+   ((packet)->header.integer_timestamp_type != INTEGER_TIMESTAMP_NOT_PRESENT ? MEMBER_SIZE(struct waveform_vita_packet, header) : MEMBER_SIZE(struct waveform_vita_packet_sans_ts, header))
 
+// ****************************************
+// Structures, Enums, typedefs
+// ****************************************
+enum vita_packet_type
+{
+   VITA_PACKET_TYPE_IF_DATA_WITHOUT_STREAM_ID = 0x00,
+   VITA_PACKET_TYPE_IF_DATA_WITH_STREAM_ID = 0x01,
+   VITA_PACKET_TYPE_EXT_DATA_WITHOUT_STREAM_ID = 0x02,
+   VITA_PACKET_TYPE_EXT_DATA_WITH_STREAM_ID = 0x03,
+   VITA_PACKET_TYPE_CTX = 0x04,
+   VITA_PACKET_TYPE_EXT_CTX = 0x05,
+   VITA_PACKET_TYPE_CMD = 0x06,
+   VITA_PACKET_TYPE_EXT_CMD = 0x07
+};
 
 // Integer timestamp constants
-static const uint8_t INTEGER_TIMESTAMP_NOT_PRESENT = 0x00;
-static const uint8_t INTEGER_TIMESTAMP_UTC = 0x10;
-static const uint8_t INTEGER_TIMESTAMP_GPS = 0x20;
-static const uint8_t INTEGER_TIMESTAMP_OTHER = 0x30;
+enum integer_timestamp_type
+{
+   INTEGER_TIMESTAMP_NOT_PRESENT = 0x00,
+   INTEGER_TIMESTAMP_UTC = 0x01,
+   INTEGER_TIMESTAMP_GPS = 0x02,
+   INTEGER_TIMESTAMP_OTHER = 0x03,
+};
 
 // Fractional timestamp constants
-static const uint8_t FRACTIONAL_TIMESTAMP_NOT_PRESENT = 0x00;
-static const uint8_t FRACTIONAL_TIMESTAMP_SAMPLE_COUNT = 0x01;
-static const uint8_t FRACTIONAL_TIMESTAMP_REAL_TIME = 0x02;
-static const uint8_t FRACTIONAL_TIMESTAMP_FREE_RUNNING_COUNT = 0x03;
-
-/// @brief Swap byte order of a data structure word by word
-/// @details The VITA-49 specification specifies that the byte order of the
-
-///          words in the packet is big endian.  This means we must swap
-///          each word for major portions of the packet.  This function will
-///          do that swap for an arbitrary chunk of data.
-/// @param data A pointer to the data to be byte swapped.
-inline static void vita_swap_data(void* data)
+enum fractional_timestamp_type
 {
-   for (uint32_t* word = (uint32_t*) data; word < (uint32_t*) (data + 1); ++word)
-   {
-      *word = ntohl(*word);
-   }
-}
+   FRACTIONAL_TIMESTAMP_NOT_PRESENT = 0x00,
+   FRACTIONAL_TIMESTAMP_SAMPLE_COUNT = 0x01,
+   FRACTIONAL_TIMESTAMP_REAL_TIME = 0x02,
+   FRACTIONAL_TIMESTAMP_FREE_RUNNING_COUNT = 0x03
+};
 
-// ****************************************
-// Structs, Enums, typedefs
-// ****************************************
+enum sample_rate
+{
+   SR_3K = 0x00,
+   SR_6K = 0x01,
+   SR_12K = 0x02,
+   SR_24K = 0x03,
+   SR_48K = 0x04,
+   SR_96K = 0x05,
+   SR_192K = 0x06,
+   SR_384K = 0x07,
+   SR_768K = 0x08,
+   SR_1568K = 0x09,
+   SR_3072K = 0x0A,
+   SR_6144K = 0x0B,
+   SR_12288K = 0x0C,
+   SR_24576K = 0x0D,
+   SR_49152K = 0x0E,
+   SR_98304K = 0x0F,
+   SR_4K = 0x10,
+   SR_8K = 0x11,
+   SR_16K = 0x12,
+   SR_32K = 0x13,
+   SR_64K = 0x14,
+   SR_128K = 0x15,
+   SR_256K = 0x16,
+   SR_512K = 0x17,
+   SR_1024K = 0x18,
+   SR_2048K = 0x19,
+   SR_4096K = 0x1A,
+   SR_8192K = 0x1B,
+   SR_16384K = 0x1C,
+   SR_32768K = 0x1D,
+   SR_65536K = 0x1E,
+   SR_131072K = 0x1F
+};
+
+enum bits_per_sample
+{
+   BPS_8 = 0x00,
+   BPS_16 = 0x01,
+   BPS_24 = 0x02,
+   BPS_32 = 0x03
+};
+
+enum frames_per_sample
+{
+   FPS_1 = 0x00,
+   FPS_2 = 0x01
+};
+
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "altera-struct-pack-align"
 #pragma pack(push, 1)
 struct waveform_vita_packet {
    struct
    {
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+      uint8_t reserved1 : 2;
+      bool trailer_present : 1;
+      bool class_present : 1;
+      enum vita_packet_type packet_type : 4;
+
+      uint8_t sequence : 4;
+      enum fractional_timestamp_type fractional_timestamp_type : 2;
+      enum integer_timestamp_type integer_timestamp_type : 2;
+
       uint16_t length;
-      uint8_t timestamp_type;
-      uint8_t packet_type;
+#elif __BYTE_ORDER == __BIG_ENDIAN
+      uint8_t packet_type : 4;
+      bool class_present : 1;
+      bool trailer_present : 1;
+      uint8_t reserved1 : 2;
+
+      uint8_t integer_timestamp : 2;
+      uint8_t fractional_timestamp : 2;
+      uint8_t sequence : 4;
+
+      uint16_t length;
+#else
+#error "Please fix <bits/endian.h>"
+#endif
       uint32_t stream_id;
-      uint64_t class_id;
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+      uint32_t oui;
+      uint16_t information_class;
+      union
+      {
+         uint16_t packet_class_byte;
+         struct {
+            bool is_audio : 1;
+            bool is_float : 1;
+            uint8_t padding : 6;
+
+            enum sample_rate sample_rate : 5;
+            enum bits_per_sample bits_per_sample : 2;
+            enum frames_per_sample frames_per_sample : 1;
+         } packet_class;
+      };
+#elif __BYTE_ORDER == __BIG_ENDIAN
+      uint32_t oui;
+      uint16_t information_class;
+      union
+      {
+         uint16_t packet_class_byte;
+         struct {
+            uint8_t padding : 6;
+            bool is_float : 1;
+            bool is_audio : 1;
+
+            enum frames_per_sample frames_per_sample : 1;
+            enum bits_per_sample bits_per_sample : 2;
+            enum sample_rate sample : rate 5;
+         } packet_class;
+      };
+#else
+#error "Please fix <bits/endian.h>"
+#endif
       uint32_t timestamp_int;
       uint64_t timestamp_frac;
    } header;
    union
    {
       uint8_t raw_payload[1440];
+      uint32_t word_payload[360];
       float if_samples[360];
       struct {
          uint32_t length;
@@ -108,41 +215,108 @@ struct waveform_vita_packet {
 struct waveform_vita_packet_sans_ts {
    struct
    {
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+      uint8_t reserved1 : 2;
+      bool trailer_present : 1;
+      bool class_present : 1;
+      enum vita_packet_type packet_type : 4;
+
+      uint8_t sequence : 4;
+      enum fractional_timestamp_type fractional_timestamp_type : 2;
+      enum integer_timestamp_type integer_timestamp_type : 2;
+
       uint16_t length;
-      uint8_t timestamp_type;
-      uint8_t packet_type;
+#elif __BYTE_ORDER == __BIG_ENDIAN
+      uint8_t packet_type : 4;
+      bool class_present : 1;
+      bool trailer_present : 1;
+      uint8_t reserved1 : 2;
+
+      uint8_t integer_timestamp : 2;
+      uint8_t fractional_timestamp : 2;
+      uint8_t sequence : 4;
+
+      uint16_t length;
+#else
+#error "Please fix <bits/endian.h>"
+#endif
       uint32_t stream_id;
-      uint64_t class_id;
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+      uint32_t oui;
+      uint16_t information_class;
+      union
+      {
+         uint16_t packet_class_byte;
+         struct {
+            bool is_audio : 1;
+            bool is_float : 1;
+            uint8_t padding : 6;
+
+            enum sample_rate sample_rate : 5;
+            enum bits_per_sample bits_per_sample : 2;
+            enum frames_per_sample frames_per_sample : 1;
+         } packet_class;
+      };
+#elif __BYTE_ORDER == __BIG_ENDIAN
+      uint32_t oui;
+      uint16_t information_class;
+      union
+      {
+         uint16_t packet_class_byte;
+         struct {
+            uint8_t padding : 6;
+            bool is_float : 1;
+            bool is_audio : 1;
+
+            enum frames_per_sample frames_per_sample : 1;
+            enum bits_per_sample bits_per_sample : 2;
+            enum sample_rate sample : rate 5;
+         } packet_class;
+      };
+#else
+#error "Please fix <bits/endian.h>"
+#endif
    } header;
+
    union
    {
       uint8_t raw_payload[1452];
-      //  Note that these are *intentionally* backwards.  This way when the byte
-      //  swap happens, everything ends up in the correct order that SSDR expects.
-      //  This order probably isn't technically correct (VITA likes to work per-word),
-      //  But that's how it's coded in SSDR.
       struct {
-         uint16_t value;
          uint16_t id;
+         uint16_t value;
       } meter[363];
    };
 };
 #pragma pack(pop)
 
 struct vita {
-   int sock;
-   unsigned short port;// XXX Do we really need to keep this around?
-   pthread_t thread;
+   int                sock;
+   unsigned short     port;// XXX Do we really need to keep this around?
+   pthread_t          thread;
    struct event_base* base;
-   struct event* read_evt;
-   _Atomic uint8_t meter_sequence;
-   _Atomic uint8_t data_sequence;
-   uint32_t tx_stream_id;
-   uint32_t rx_stream_id;
-   uint32_t tx_bytes_stream_id;
-   uint32_t rx_bytes_stream_id;
+   struct event*      read_evt;
+   _Atomic uint8_t    meter_sequence;
+   _Atomic uint8_t    data_sequence;
+   _Atomic uint8_t    byte_data_sequence;
+   uint32_t           tx_stream_in_id;
+   uint32_t           rx_stream_in_id;
+   uint32_t           tx_stream_out_id;
+   uint32_t           rx_stream_out_id;
+   uint32_t           byte_stream_in_id;
+   uint32_t           byte_stream_out_id;
 };
 #pragma clang diagnostic pop
+
+// ****************************************
+// Constants
+// ****************************************
+#define DISCOVERY_STREAM_ID 0x00000800u
+#define METER_STREAM_ID 0x88000000u
+
+#define FLEX_OUI 0x00001c2dU
+#define SMOOTHLAKE_INFORMATION_CLASS 0x534cU
+
+#define METER_PACKET_CLASS 0x8002
 
 // ****************************************
 // Global Functions
@@ -181,11 +355,9 @@ ssize_t vita_send_data_packet(struct vita* vita, float* samples, size_t num_samp
 /// @param vita The VITA loop to which to send the packet
 /// @param data A reference to an array of bytes to send
 /// @param data_size The number of bytes in the samples array
-/// @param type The type of data packet to send, either RAW_DATA_TX to send the samples to the radio transmitter, or RAW_DATA_RX
-///        to send it to the radio's serial port.
 /// @returns 0 on success or a negative value on an error.  Return values are negative values of errno.h and will return
 ///          -E2BIG on a short write to the network.
-ssize_t vita_send_raw_data_packet(struct vita* vita, void* data, size_t data_size, enum waveform_packet_type type);
+ssize_t vita_send_byte_data_packet(struct vita* vita, void* data, size_t data_size);
 
 /// @brief Stops a VITA processing loop and releases all of its resources
 /// @details When you are done using a VITA loop use this function to clean up resources.  Usage would be, for example, when the

@@ -69,6 +69,7 @@ target_include_directories(pthread_workqueue
         ${pthread-wq_SOURCE_DIR}/src
         )
 target_compile_options(pthread_workqueue PUBLIC -fPIC)
+target_link_libraries(pthread_workqueue PRIVATE Threads::Threads)
 
 FetchContent_Declare(utlist
         GIT_REPOSITORY https://github.com/troydhanson/uthash.git
@@ -80,6 +81,7 @@ if (NOT utlist_POPULATED)
 endif ()
 
 find_package(LibEvent REQUIRED)
+find_package(Threads REQUIRED)
 
 add_library(waveform SHARED ${WAVEFORM_SRCS} ${WAVEFORM_HDRS} ${sds_SOURCES})
 set_target_properties(waveform PROPERTIES
@@ -90,7 +92,7 @@ set_target_properties(waveform PROPERTIES
 target_link_libraries(waveform
         PUBLIC
         LibEvent::LibEvent
-        pthread
+        Threads::Threads
         m
         PRIVATE
         pthread_workqueue
@@ -106,6 +108,36 @@ target_include_directories(waveform
         ${utlist_SOURCE_DIR}/src
         )
 define_file_basename_for_sources(waveform)
+
+add_library(waveform-static STATIC ${WAVEFORM_SRCS} ${WAVEFORM_HDRS} ${sds_SOURCES})
+target_link_libraries(waveform-static
+        PUBLIC
+        LibEvent::LibEvent
+        Threads::Threads
+        m
+        PRIVATE
+        pthread_workqueue
+        )
+target_include_directories(waveform-static
+        PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:include/waveform>
+        PRIVATE
+        ${sds_SOURCE_DIR}
+        ${utlist_SOURCE_DIR}/src
+        )
+
+if (ANNA_TEST)
+    add_executable(example-wf
+            example/main.c
+            )
+    target_link_libraries(example-wf waveform-static)
+    target_compile_definitions(example-wf PRIVATE
+            TX_PAYLOAD_IQ_SINE
+            RX_PAYLOAD_SINE
+            )
+endif ()
+
 
 find_package(Doxygen)
 if (DOXYGEN_FOUND)

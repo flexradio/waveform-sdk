@@ -84,16 +84,6 @@ static void discovery_cb(evutil_socket_t sock, short what, void* ctx)
       return;
    }
 
-   for (uint32_t* word = (uint32_t*) &packet; word < (uint32_t*) (((uint8_t*) &packet) + VITA_PACKET_HEADER_SIZE(&packet)); ++word)
-   {
-      *word = ntohl(*word);
-   }
-
-   if (packet.header.class_id != DISCOVERY_CLASS_ID)
-   {
-      waveform_log(WF_LOG_INFO, "Received packet with invalid ID: 0x%lX\n", packet.header.class_id);
-      return;
-   }
 
    if (packet.header.packet_type != VITA_PACKET_TYPE_EXT_DATA_WITH_STREAM_ID)
    {
@@ -101,9 +91,16 @@ static void discovery_cb(evutil_socket_t sock, short what, void* ctx)
       return;
    }
 
-   if (packet.header.stream_id != DISCOVERY_STREAM_ID)
+
+   if (packet.header.stream_id != __constant_cpu_to_be32(DISCOVERY_STREAM_ID))
    {
       waveform_log(WF_LOG_INFO, "Received packet does not have correct stream id: 0x%x\n", packet.header.stream_id);
+      return;
+   }
+
+   if (packet.header.information_class != __constant_cpu_to_be16(SMOOTHLAKE_INFORMATION_CLASS) || packet.header.packet_class_byte != 0xffff)
+   {
+      waveform_log(WF_LOG_INFO, "Received packet with invalid ID: 0x%04x/0x%04x\n", packet.header.information_class, packet.header.packet_class_byte);
       return;
    }
 
