@@ -3,7 +3,9 @@ Section: libs
 Priority: optional
 Maintainer: FlexRadio Systems Software Engineering <software@flex-radio.com>
 Build-Depends: debhelper (>= 11),
-               libevent-dev
+               libevent-dev,
+               doxygen,
+               cmake
 Standards-Version: 4.4.1
 Homepage: http://www.flexradio.com
 
