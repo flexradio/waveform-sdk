@@ -1,8 +1,8 @@
-#FlexRadio Waveform Application Programming Interface
+# FlexRadio Waveform Application Programming Interface
 
 **NOTICE: This documentation and the API within are in a preliminary state. The API is subject to change at any time until finalized.** 
 
-##About Waveforms
+## About Waveforms
 Waveforms are pluggable modules used in FLEX radios to extend functionality by providing additional modulation and demodulation modes. These modes can implement data and voice based modes for use by the radio's user.
 
 A waveform is implemented using two distinct but cooperating interfaces: the control or API interface, and the data or VITA-49 interface. The control interface uses TCP/IP to present a text based interface for the waveform to perform functions such as commanding the radio to tune frequencies, key the transmitter, change filter parameters, and even register the waveform itself with the radio. Documentation of the control interface is available on the [FlexRadio Wiki](http://wiki.flexradio.com/index.php?title=SmartSDR_TCP/IP_API) which details the structure and syntax of commands issued to the radio over the control socket.
@@ -13,7 +13,7 @@ The data interface also provides the ability for the waveform to pass back "mete
 
 All communications between the radio and the waveform occur over a network API, even when the waveform runs on a CPU internal to the radio.
 
-##The Waveform API
+## The Waveform API
 The Waveform API makes the job of implementing a waveform for a FLEX radio easier and more straight forward. The API handles standard functionality for all waveforms such as:
 
 * Discovering the radio
@@ -37,7 +37,7 @@ The Waveform API is a multi-threaded library and the astute waveform author will
 
 The API itself utilzies two threads, one to handle the command port, and one to handle the data port. The data handling thread is only activated when the waveform is active. The command thread is active at all times. Both of these threads run event loops to handle data incoming on their respecive network sockets.
 
-###Basic API Structure
+### Basic API Structure
 There are a few steps required to instantiate and use the waveform.
 
 1. Optionally discover a radio on the network. If you already know the IP address of the radio (if, for example, it is passed to you on a command line), you may skip this step.
@@ -54,12 +54,12 @@ You may register more than one callback to the same event. In this case all call
 
 A single waveform may handle more than one mode. This is useful, for example, when a waveform may have the same basic structure but rely on two different underlying modes. Be aware that it is only supported for a waveform to handle a single stream at a time. This means that although you may register two modes to a single waveform, only one may be active at a time.
 
-###Underlying Modes
+### Underlying Modes
 Every waveform must have an "underlying mode" attached to it as a base mode. This can be any of the "built-in" modes of the radio. This will include USB, LSB, DIGU, DIGL, CW, AM, etc. Although you can use any of these, DIGU and DIGL are probably the most appropriate. These modes turn off most signal processing steps such as the transmit speech processor.
 
 A special "underlying mode" has been implemented for waveform use. This is the `RAW` mode. `RAW` provides a waveform with I/Q samples with the least amount of processing possible. Data is mixed down from the ADC, filtered into the desired slice bandwidth and passed directly to the waveform. This will provide the least amount of latency, but will require the waveform author to implement a great deal of the signal processing chain themselves. This will include things such as AGC, final filtering and demodulation. Latency through the radio to the waveform is expected to be on the order of 10ms, but is not currently characterized or guarnateed.
 
-###Waveform Lifecycle
+### Waveform Lifecycle
 A waveform's state callback is invoked for one of four events:
 
 1. The waveform has become active (usually by the user selecting a mode the waveform handles on the user interface device).
@@ -67,15 +67,15 @@ A waveform's state callback is invoked for one of four events:
 3. The radio intends to begin transmitting (usually by a user pressing the "PTT" or "MOX" buttons on the radio).
 4. The radio intends to stop transmitting (usually by the user relasing the "PTT" or toggling the "MOX" button on the radio).
 
-####The Waveform Activates or Deactivates
+#### The Waveform Activates or Deactivates
 When the waveform recieves this event, it needs to make all preparations to become active. The waveform API will begin recieving data packets from the radio and routing them to the data callbacks when it queues the callback for this event. Any preparation needed to process these packets must be done in the waveform activation callback.
 
 Conversely when the waveform deactivates, all resources used by the waveform for processing data should be released and processing stopped. The user may not activate the waveform for a long time (days, weeks, months) so resources should not be kept around just for optimization purposes of a single waveform.
 
-####The Waveform Intends to Begin or Stop Transmitting
+#### The Waveform Intends to Begin or Stop Transmitting
 This callback is called when the user has requested the radio start or stop transmitting for some reason. This could be because the user has pressed a UI interface control, or possibly because the waveform itself has executed a transmit command over the command interface. Either way, the waveform must finish any processing for and cease the corresponding recieve or transmit stream before starting the converse stream. For example, if the `PTT_REQUESTED` event is received, the waveform must cease processing the receive stream and sending data to the speaker. The radio will not begin transmitting until it has ceased receiving packets for the speaker stream.
 
-###Data Handling
+### Data Handling
 The main job of the waveform is to handle and process data, of course. When the waveform becomes active, the API library arranges to start an event loop to handle the data packets and pass the resulting data to the user-defined callbacks. A single callback is invoked for every VITA-49 packet recieved by the API. `waveform_register_rx_cb` is used to register a callback to handle data coming from the radio's receiver. Similarly, `waveform_register_tx_cb` is used to register a callback to handle data coming from the radio's microphone to be transmitted.
 
 There are utility functions to parse the opaque VITA-49 packet structure passed to these callback functions. Do not be
@@ -104,6 +104,8 @@ cases. When invoked with the `TRANSMITTER_DATA` type, it will send samples to th
 the `SPEAKER_DATA` type, the samples will be played as audio through the speaker.
 
 ### Byte Stream Data Handling
+
+*Note that byte streams are not currently useful on the FLEX-6000 series radios*
 
 A waveform may have occasion to deal with byte-oriented data. This could be because a digital waveform may want to
 source data from the serial port, or a waveform may wish to send digital data to the RapidM module for further
@@ -148,20 +150,20 @@ callback. The implementation of this function is as a macro that passes `NULL` t
 parameters of the `waveform_send_api_command_cb` function. Note that this usages are slightly more efficient than their
 callback counterparts because the implementation doesn't store state for these nonexistent callback requests.
 
-	###Keyword Arguments - Not Yet Implemented
-	Many radio messages contain "keyword arguments" in the format `key=value`.  For example, a status message may contain, in part, `radio slices=4 panadapters=4 lineout_gain=60 lineout_mute=0 headphone_gain=80 headphone_mute=0 remote_on_enabled=0 pll_done=0`.  There are numerous keyword arguments in this line: `slices=4`, `lineout_gain=60`, etc. Many times a waveform only cares about a particular key in a status line. Since callbacks of this type almost universally recieve the `argc`/`argv` format arguments common in UNIX implementations, the API provides some functions to parse these.
+### Keyword Arguments - Not Yet Implemented
+Many radio messages contain "keyword arguments" in the format `key=value`.  For example, a status message may contain, in part, `radio slices=4 panadapters=4 lineout_gain=60 lineout_mute=0 headphone_gain=80 headphone_mute=0 remote_on_enabled=0 pll_done=0`.  There are numerous keyword arguments in this line: `slices=4`, `lineout_gain=60`, etc. Many times a waveform only cares about a particular key in a status line. Since callbacks of this type almost universally recieve the `argc`/`argv` format arguments common in UNIX implementations, the API provides some functions to parse these.
 
-###Radio Status
+### Radio Status
 The radio sends status updates to the waveform over the control connection. These status updates include changes to the slice reciever parameters, updates about client connections, or any number of other radio operating parameters. By default, the API library will subscribe to interlock and slice updates as those are necessary for the internal operation of the library. For any other status messages to be sent from the radio, you must subscribe to them using the [`sub`](http://wiki.flexradio.com/index.php?title=TCP/IP_sub) command.
 
 Once you subscribe to these status messages, you can set up callbacks to be called when the messages are recieved by the control connection using the [`waveform_register_status_cb`](html/waveform__api_8h.html#acddede717f247e00d3a40081084b60ab) function. The function will take the name of the status for which you wish to have callbacks called. For example, if you wish to be notified on changes to the radio's slice recievers, you would use a name of `slice` for the `command_name` parameter in the fucntion call.  Once again, the callback can recieve a context pointer argument for you to pass context to the status. Remember you can also use the global waveform context as well.
 
-###Waveform Commands
+### Waveform Commands
 Clients can send commands to waveforms in order to be able to change waveform parameters like baud rates, modulation subtypes, and other waveform specific operating parameters. These parameters are up to the waveform author to define and implement. The API delivers notification of these commands via the [`waveform_register_command_cb`](html/waveform__api_8h.html#a8fe52b3ac24f8fa2a43fe37f3aa9b237) function. Like with status callbacks, you will register the callback with a command name which represents the first parameter passed back from the client (`argv[0]` if you will).  The callback is passed the command parsed into `argc`/`argv` format. It is suggested that a good pattern is the implementation of a set/get command set followed by keyword arguments to set the various parameters.
 
 The callback is expected to return a signed integer representing the status of the command. The value `0` is assumed to be a successfullly executed command, while anything else is an error. Error codes are to be defined by the waveform author and are passed back to the client upon command completion.
 
-###Metering
+### Metering
 It is sometimes useful for the waveform to pass back qualitative data about its functioning. These can be things like BER, bits recieved, frequency offset, timing offset, etc. The waveform API provides "metering" functionality to be able to pass these back to any interested clients. The metering API utilizes VITA-49 packets to send the values back to the radio.
 
 The API library provides a few functions to assist with manging the metering API. First, meters must be registered via the command socket to be active. The [`waveform_register_meter`](html/waveform__api_8h.html#a614e0ea5956c33b17d1c6b673a8fb12b) function allows the waveform author to create the meter in the radio. This function takes a name for the meter, minimum and maximum values, and an enum representing the units of the meter. Commonly this is dB, but call also be volts, amps, and other electrical values. There is currently no value for "unitless" values.
@@ -170,7 +172,7 @@ Once a meter is registered, the meter value can be set by using the [`waveform_m
 
 Once you have set all of your desirec meter values, you need to arrange for them to be sent to the radio. This is accomplished with the [`waveform_meters_send`](html/waveform__api_8h.html#acdf6df9cbbef4b2f40a35ee144ab14cd) function. Once the meters are sent to the radio, the values are reset to an "unset" state until set again. When sending, `waveform_meters_send` *only* sends values that have been subsequently set using the `waveform_meter_set*` functions. This allows you to optimize your meters by sending only values that may have changed.
 
-###Discovery
+### Discovery
 Radios broadcast a discovery packet to the network once per second to announce their presence. This packet contains various information on how to contact the radio. The waveform API library contains a function [`waveform_discover_radio`](html/waveform__api_8h.html#a879406fb6396641466e35a4e18dd0f07) to utilize this functionality.  Upon execution, the function will wait for the `timeout` listening for radio packets. It will return either the IP address of the *first* radio it hears, or NULL if no radios were found before the timeout. This `struct sockaddr_in *` can be used with `waveform_radio_create` to create your radio structure.
 
 It should be noted that this feature is of some limited value in the waveform context for a couple of reasons:
