@@ -811,6 +811,10 @@ static void radio_init(struct radio_t* radio)
       {
          waveform_send_api_command_cb(cur_wf, NULL, NULL,
                                       "sub slice all");
+         waveform_send_api_command_cb(cur_wf, NULL, NULL,
+                                      "sub radio all");
+         waveform_send_api_command_cb(cur_wf, NULL, NULL,
+                                      "sub client all");
          sub = 1;
       }
 
